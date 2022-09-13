@@ -8,7 +8,7 @@ from pyspark import SparkContext, SparkConf
 from pyspark.sql import SparkSession
 from pyspark.sql import DataFrame
 from pyspark.sql import Row
-from pyspark.sql.functions import col, avg, to_date, from_unixtime, initcap, udf, input_file_name, substring_index
+from pyspark.sql.functions import col, avg, to_date, from_unixtime, initcap, udf, input_file_name, substring_index, current_timestamp, to_timestamp
 from pyspark.sql import functions as func
 from pyspark.sql.types import StructType, StructField, StringType, IntegerType, FloatType, DateType, TimestampType
 import os
@@ -48,16 +48,17 @@ def opere_lista(spark):
     udfFunction_GetCentury = udf(Utilities.centuryFromYear)
 
     #modifica del dataframe (inserita la data, il secolo e sistemato il campo autore)
-    new = df.withColumn("data_creazione", from_unixtime("yimestamp"))\
+    new = df.withColumn("data_creazione", to_timestamp(from_unixtime("timestamp")))\
             .withColumn("autore", initcap("autore"))\
-            .withColumn("aecolo", udfFunction_GetCentury(df.Anno))
+            .withColumn("secolo", udfFunction_GetCentury(df.anno))
     new.show()
+    new.printSchema()
 
 
     #salvataggio del DataFrame (solo se contiene informazioni)
     os.makedirs(destinationDirectory, exist_ok=True)
     if (new.count()>0):
-        new.write.mode("append").option("header", "true").option("delimiter",";").csv(destinationDirectory)
+        new.drop("timestamp").write.mode("append").option("header", "true").option("delimiter",";").csv(destinationDirectory)
 
     #i file letti vengono spostati nella cartella processed
     os.makedirs(moveDirectory, exist_ok=True)
@@ -65,7 +66,7 @@ def opere_lista(spark):
     lista = data.select("input_file").rdd.flatMap(lambda x: x).collect()
     for a in list(set(lista)):
         fname = a.split("/")[-1]
-        shutil.move(fileDirectory + fname, moveDirectory + fname)
+        #shutil.move(fileDirectory + fname, moveDirectory + fname)
 
 """
 vengono lette tutti i file contenenti la descrizione di un'opera.
@@ -89,16 +90,22 @@ def opere_descrizioni(spark, sc):
 
 
     udfGetID= udf(Utilities.getIDFromFile)
+    udfModificationDate = udf(Utilities.modificationDate)
     udfGetTitolo = udf(Utilities.getTitoloFromFile)
+    udfFilePath = udf(Utilities.filePath)
     df = df.withColumn("id_opera", udfGetID(func.substring_index(func.col("input_file"),"/",-1)))\
-        .withColumn("titolo_opera", udfGetTitolo(func.substring_index(func.col("input_file"),"/",-1)))
+        .withColumn("titolo_opera", initcap(udfGetTitolo(func.substring_index(func.col("input_file"),"/",-1)))) \
+        .withColumn("data_creazione",current_timestamp()) \
+        .withColumn("input_file", udfFilePath(func.col("input_file")))
+
+    df = df.withColumn("data_modifica", from_unixtime(udfModificationDate(func.col("input_file"))))
     df.printSchema()
     df.show()
 
     # salvataggio del DataFrame (solo se contiene informazioni)
     os.makedirs(destinationDirectory, exist_ok=True)
     if (df.count() > 0):
-        df.select("descrizione","id_opera","titolo_opera").write.mode("append").option("header", "true").option("delimiter", ";").csv(destinationDirectory)
+        df.select("descrizione","id_opera","titolo_opera","data_creazione").write.mode("append").option("header", "true").option("delimiter", ";").csv(destinationDirectory)
 
     os.makedirs(moveDirectory, exist_ok=True)
     lista = df.select("input_file").rdd.flatMap(lambda x: x).collect()
@@ -127,7 +134,7 @@ def opere_autori(spark, sc):
 
 
     # modifica del dataframe (inserita la data, il secolo e sistemato il campo autore)
-    new = df.withColumn("nome", initcap("nome"))
+    new = df.withColumn("nome", initcap("nome")).withColumn("data_creazione",current_timestamp())
     new.show()
 
     # salvataggio del DataFrame (solo se contiene informazioni)
@@ -145,20 +152,30 @@ def opere_autori(spark, sc):
 
 
 def opere_immagini(spark, sc):
+
     fileDirectory = 'raw/opere/immagini/'
     moveDirectory = 'raw/opere/immagini/processed/'
     destinationDirectory = 'standardized/opere/immagini/'
 
-    df = spark.read.format("image").load(fileDirectory)
+    df = spark.read.text(fileDirectory)
     df.printSchema()
     df.show()
 
+    udfGetID = udf(Utilities.getIDFromFile)
+    udfGetTitolo = udf(Utilities.getTitoloFromFile)
+    udfRecreateSpace = udf(Utilities.recreateSPace)
+    df = df.withColumn("input_file", udfRecreateSpace(input_file_name()))\
+        .withColumn("id_opera", udfGetID(func.substring_index(func.col("input_file"), "/", -1))) \
+        .withColumn("titolo_opera", initcap(udfGetTitolo(func.substring_index(func.col("input_file"), "/", -1)))) \
+        .withColumn("data_creazione", current_timestamp())
+
+    df.show(20, False)
+
     # salvataggio del DataFrame (solo se contiene informazioni)
-    """
     os.makedirs(destinationDirectory, exist_ok=True)
     if (df.count() > 0):
-        df.select("descrizione","id_opera","titolo_opera").write.mode("append").option("header", "true").option("delimiter", ";").csv(destinationDirectory)
-
+        df.select("input_file","id_opera","titolo_opera","data_creazione").write.mode("append").option("header", "true").option("delimiter", ";").csv(destinationDirectory)
+    """
     os.makedirs(moveDirectory, exist_ok=True)
     lista = df.select("input_file").rdd.flatMap(lambda x: x).collect()
     for a in list(set(lista)):
@@ -182,10 +199,10 @@ def main():
         enableHiveSupport(). \
         getOrCreate()
 
-    #opere_lista(spark)
+    opere_lista(spark)
     #opere_descrizioni(spark, sc)
     #opere_autori(spark, sc)
-    opere_immagini(spark, sc)
+    #opere_immagini(spark, sc)
 
 if __name__ == "__main__":
     main()

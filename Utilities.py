@@ -1,4 +1,10 @@
 import math
+import os.path, time
+
+def modificationDate(file):
+    ti_c = os.path.getctime(file)
+    c_ti = time.ctime(ti_c)
+    return ti_c
 
 def centuryFromYear(year):
     return math.ceil(year/100)
@@ -10,6 +16,15 @@ def getIDFromFile(nome):
     return s
 
 def getTitoloFromFile(nome):
-    s = nome.replace("%", " ")
+    s = nome.replace("%20", " ")
     s = s.split("-")[0]
+    return s
+
+def recreateSpace(origin):
+    s = origin.replace("%20", " ")
+    return s
+
+def filePath(origin):
+    s = origin.replace("%20", " ")
+    s = s.replace("file:/", "")
     return s
