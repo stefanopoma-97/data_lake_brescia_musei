@@ -282,15 +282,17 @@ def visitatori_elenco(spark, sc):
 
 #TODO visite
 def visitatori_visite(spark, sc):
-    fileDirectory = 'raw/opere/autori/'
-    moveDirectory = 'raw/opere/autori/processed/'
-    destinationDirectory = 'standardized/opere/autori/'
+    fileDirectory = 'raw/visitatori/visite/'
+    moveDirectory = 'raw/visitatori/visite/processed/'
+    destinationDirectory = 'standardized/visitatori/visite/'
 
     # schema del csv
     schema = StructType([ \
         StructField("id", StringType(), True), \
-        StructField("nome", StringType(), True), \
-        StructField("anno", IntegerType(), True)])
+        StructField("visitatore_id", StringType(), True), \
+        StructField("opera_id", StringType(), True), \
+        StructField("durata", StringType(), True), \
+        StructField("timestamp", IntegerType(), True)])
 
     # legge tutti i file nella directory
     df = spark.read.schema(schema).option("delimiter", ";").csv(fileDirectory)
@@ -299,9 +301,8 @@ def visitatori_visite(spark, sc):
     udfModificationDate = udf(Utilities.modificationDate)
     udfFilePath = udf(Utilities.filePath)
     # modifica del dataframe (inserita la data, il secolo e sistemato il campo autore)
-    new = df.withColumn("nome", initcap("nome"))\
+    new = df.withColumn("data_creazione", to_timestamp(from_unixtime("timestamp")))\
             .withColumn("input_file",udfFilePath(input_file_name()))
-    new = new.withColumn("data_creazione", to_timestamp(from_unixtime(udfModificationDate(func.col("input_file")))))
 
     new.show()
     new.printSchema()
@@ -309,7 +310,7 @@ def visitatori_visite(spark, sc):
     # salvataggio del DataFrame (solo se contiene informazioni)
     os.makedirs(destinationDirectory, exist_ok=True)
     if (new.count() > 0):
-        new.drop("input_file").write.mode("append").option("header", "true").option("delimiter", ";").csv(destinationDirectory)
+        new.drop("input_file","timestamp").write.mode("append").option("header", "true").option("delimiter", ";").csv(destinationDirectory)
 
     # i file letti vengono spostati nella cartella processed
     os.makedirs(moveDirectory, exist_ok=True)
@@ -339,7 +340,8 @@ def main():
     #opere_autori(spark, sc)
     #opere_immagini(spark, sc)
     #visitatori_categorie(spark, sc)
-    visitatori_elenco(spark, sc)
+    #visitatori_elenco(spark, sc)
+    visitatori_visite(spark, sc)
 
 if __name__ == "__main__":
     main()
