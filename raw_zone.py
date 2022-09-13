@@ -28,6 +28,7 @@ I file processati vengono inseriti nella sotto-cartella processed, in modo che n
 def opere_lista(spark):
     fileDirectory = 'raw/opere/lista/'
     moveDirectory = 'raw/opere/lista/processed/'
+    destinationDirectory = 'standardized/opere/lista/'
     files = os.listdir(fileDirectory)
 
     schema = StructType([ \
@@ -44,13 +45,18 @@ def opere_lista(spark):
     df = spark.read.schema(schema).option("delimiter", ";").csv(fileDirectory)
     df.printSchema()
 
+    #udf per estrarre secolo
     udfFunction_GetCentury = udf(Utilities.centuryFromYear)
 
-    #dal timestamp (intero) crea una colonna per la data
+    #dmodifica del dataframe
     new = df.withColumn("Data creazione", from_unixtime("Timestamp"))\
             .withColumn("Autore", initcap("Autore"))\
             .withColumn("Secolo", udfFunction_GetCentury(df.Anno))
     new.show()
+
+    #salvataggio
+    os.makedirs(destinationDirectory, exist_ok=True)
+    new.write.mode("append").option("header", "true").option("delimiter",";").csv(destinationDirectory)
 
 
     os.makedirs(moveDirectory, exist_ok=True)
