@@ -8,7 +8,7 @@ from pyspark import SparkContext, SparkConf
 from pyspark.sql import SparkSession
 from pyspark.sql import DataFrame
 from pyspark.sql import Row
-from pyspark.sql.functions import col, avg, to_date, from_unixtime, initcap, udf, input_file_name, substring_index, current_timestamp, to_timestamp
+from pyspark.sql.functions import col, avg, to_date, from_unixtime, initcap, udf, input_file_name, substring_index, current_timestamp, to_timestamp, upper
 from pyspark.sql import functions as func
 from pyspark.sql.types import StructType, StructField, StringType, IntegerType, FloatType, DateType, TimestampType
 import os
@@ -236,19 +236,20 @@ def visitatori_categorie(spark, sc):
     lista = data.select("input_file").rdd.flatMap(lambda x: x).collect()
     for a in list(set(lista)):
         fname = a.split("/")[-1]
-        #shutil.move(fileDirectory + fname, moveDirectory + fname)
+        shutil.move(fileDirectory + fname, moveDirectory + fname)
 
-#TODO elenco visitatori
 def visitatori_elenco(spark, sc):
-    fileDirectory = 'raw/opere/autori/'
-    moveDirectory = 'raw/opere/autori/processed/'
-    destinationDirectory = 'standardized/opere/autori/'
+    fileDirectory = 'raw/visitatori/elenco/'
+    moveDirectory = 'raw/visitatori/elenco/processed/'
+    destinationDirectory = 'standardized/visitatori/elenco/'
 
     # schema del csv
     schema = StructType([ \
         StructField("id", StringType(), True), \
         StructField("nome", StringType(), True), \
-        StructField("anno", IntegerType(), True)])
+        StructField("cognome", StringType(), True),\
+        StructField("sesso", StringType(), True),\
+        StructField("eta", IntegerType(), True)])
 
     # legge tutti i file nella directory
     df = spark.read.schema(schema).option("delimiter", ";").csv(fileDirectory)
@@ -257,7 +258,9 @@ def visitatori_elenco(spark, sc):
     udfModificationDate = udf(Utilities.modificationDate)
     udfFilePath = udf(Utilities.filePath)
     # modifica del dataframe (inserita la data, il secolo e sistemato il campo autore)
-    new = df.withColumn("nome", initcap("nome"))\
+    new = df.withColumn("nome", initcap("nome")) \
+            .withColumn("cognome", initcap("cognome")) \
+            .withColumn("sesso", upper("sesso")) \
             .withColumn("input_file",udfFilePath(input_file_name()))
     new = new.withColumn("data_creazione", to_timestamp(from_unixtime(udfModificationDate(func.col("input_file")))))
 
@@ -335,7 +338,8 @@ def main():
     #opere_descrizioni(spark, sc)
     #opere_autori(spark, sc)
     #opere_immagini(spark, sc)
-    visitatori_categorie(spark, sc)
+    #visitatori_categorie(spark, sc)
+    visitatori_elenco(spark, sc)
 
 if __name__ == "__main__":
     main()
