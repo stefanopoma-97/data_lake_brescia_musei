@@ -106,7 +106,65 @@ def opere_descrizioni(spark, sc):
         fname = a.split("/")[-1]
         shutil.move(fileDirectory + fname, moveDirectory + fname)
 
+"""
+vengono lette tutti i file contenenti gli autori (ID, Nome, Anno).
+Viene creato un Dataframe e salvato nella standardized zone
+"""
+def opere_autori(spark, sc):
+    fileDirectory = 'raw/opere/autori/'
+    moveDirectory = 'raw/opere/autori/processed/'
+    destinationDirectory = 'standardized/opere/autori/'
 
+    # schema del csv
+    schema = StructType([ \
+        StructField("id", StringType(), True), \
+        StructField("nome", StringType(), True), \
+        StructField("anno", IntegerType(), True)])
+
+    # legge tutti i file nella directory
+    df = spark.read.schema(schema).option("delimiter", ";").csv(fileDirectory)
+    df.printSchema()
+
+
+    # modifica del dataframe (inserita la data, il secolo e sistemato il campo autore)
+    new = df.withColumn("nome", initcap("nome"))
+    new.show()
+
+    # salvataggio del DataFrame (solo se contiene informazioni)
+    os.makedirs(destinationDirectory, exist_ok=True)
+    if (new.count() > 0):
+        new.write.mode("append").option("header", "true").option("delimiter", ";").csv(destinationDirectory)
+
+    # i file letti vengono spostati nella cartella processed
+    os.makedirs(moveDirectory, exist_ok=True)
+    data = df.withColumn("input_file", input_file_name())
+    lista = data.select("input_file").rdd.flatMap(lambda x: x).collect()
+    for a in list(set(lista)):
+        fname = a.split("/")[-1]
+        shutil.move(fileDirectory + fname, moveDirectory + fname)
+
+
+def opere_immagini(spark, sc):
+    fileDirectory = 'raw/opere/immagini/'
+    moveDirectory = 'raw/opere/immagini/processed/'
+    destinationDirectory = 'standardized/opere/immagini/'
+
+    df = spark.read.format("image").load(fileDirectory)
+    df.printSchema()
+    df.show()
+
+    # salvataggio del DataFrame (solo se contiene informazioni)
+    """
+    os.makedirs(destinationDirectory, exist_ok=True)
+    if (df.count() > 0):
+        df.select("descrizione","id_opera","titolo_opera").write.mode("append").option("header", "true").option("delimiter", ";").csv(destinationDirectory)
+
+    os.makedirs(moveDirectory, exist_ok=True)
+    lista = df.select("input_file").rdd.flatMap(lambda x: x).collect()
+    for a in list(set(lista)):
+        fname = a.split("/")[-1]
+        shutil.move(fileDirectory + fname, moveDirectory + fname)
+    """
 
 
 def main():
@@ -125,7 +183,9 @@ def main():
         getOrCreate()
 
     #opere_lista(spark)
-    opere_descrizioni(spark, sc)
+    #opere_descrizioni(spark, sc)
+    #opere_autori(spark, sc)
+    opere_immagini(spark, sc)
 
 if __name__ == "__main__":
     main()
