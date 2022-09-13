@@ -4,16 +4,19 @@ Il seguente script serve a gestire l'evoluzione dei dati dalla Raw Zone alla Sta
 #import
 import glob
 
+import Utilities
+
 from pyspark import SparkContext
 from pyspark.sql import SparkSession
 from pyspark.sql import DataFrame
 from pyspark.sql import Row
-from pyspark.sql.functions import col, avg
+from pyspark.sql.functions import col, avg, to_date, from_unixtime, initcap, udf
 from pyspark.sql import functions as func
-from pyspark.sql.types import StructType, StructField, StringType, IntegerType, FloatType
+from pyspark.sql.types import StructType, StructField, StringType, IntegerType, FloatType, DateType, TimestampType
 import os
 import shutil
 import sys
+
 
 """
 Vengono lette tutte le opere (da file .csv). 
@@ -40,8 +43,14 @@ def opere_lista(spark):
     #legge tutti i file nella directory
     df = spark.read.schema(schema).option("delimiter", ";").csv(fileDirectory)
     df.printSchema()
-    df.show()
 
+    udfFunction_GetCentury = udf(Utilities.centuryFromYear)
+
+    #dal timestamp (intero) crea una colonna per la data
+    new = df.withColumn("Data creazione", from_unixtime("Timestamp"))\
+            .withColumn("Autore", initcap("Autore"))\
+            .withColumn("Secolo", udfFunction_GetCentury(df.Anno))
+    new.show()
 
 
     os.makedirs(moveDirectory, exist_ok=True)
