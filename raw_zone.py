@@ -134,15 +134,19 @@ def opere_autori(spark, sc):
     df.printSchema()
 
     udfModificationDate = udf(Utilities.modificationDate)
+    udfFilePath = udf(Utilities.filePath)
     # modifica del dataframe (inserita la data, il secolo e sistemato il campo autore)
-    new = df.withColumn("nome", initcap("nome")).withColumn("data_creazione", to_timestamp(from_unixtime(udfModificationDate(func.col("input_file")))))
+    new = df.withColumn("nome", initcap("nome"))\
+            .withColumn("input_file",udfFilePath(input_file_name()))
+    new = new.withColumn("data_creazione", to_timestamp(from_unixtime(udfModificationDate(func.col("input_file")))))
 
     new.show()
+    new.printSchema()
 
     # salvataggio del DataFrame (solo se contiene informazioni)
     os.makedirs(destinationDirectory, exist_ok=True)
     if (new.count() > 0):
-        new.write.mode("append").option("header", "true").option("delimiter", ";").csv(destinationDirectory)
+        new.drop("input_file").write.mode("append").option("header", "true").option("delimiter", ";").csv(destinationDirectory)
 
     # i file letti vengono spostati nella cartella processed
     os.makedirs(moveDirectory, exist_ok=True)
@@ -202,8 +206,8 @@ def main():
         getOrCreate()
 
     #opere_lista(spark)
-    opere_descrizioni(spark, sc)
-    #opere_autori(spark, sc)
+    #opere_descrizioni(spark, sc)
+    opere_autori(spark, sc)
     #opere_immagini(spark, sc)
 
 if __name__ == "__main__":

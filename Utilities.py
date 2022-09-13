@@ -27,4 +27,5 @@ def recreateSpace(origin):
 def filePath(origin):
     s = origin.replace("%20", " ")
     s = s.replace("file:/", "")
+    s = s.replace("//", "")
     return s
