@@ -4,7 +4,7 @@ import os.path, time
 def modificationDate(file):
     ti_c = os.path.getctime(file)
     c_ti = time.ctime(ti_c)
-    return ti_c
+    return int(ti_c)
 
 def centuryFromYear(year):
     return math.ceil(year/100)

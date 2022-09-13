@@ -66,7 +66,7 @@ def opere_lista(spark):
     lista = data.select("input_file").rdd.flatMap(lambda x: x).collect()
     for a in list(set(lista)):
         fname = a.split("/")[-1]
-        #shutil.move(fileDirectory + fname, moveDirectory + fname)
+        shutil.move(fileDirectory + fname, moveDirectory + fname)
 
 """
 vengono lette tutti i file contenenti la descrizione di un'opera.
@@ -98,9 +98,11 @@ def opere_descrizioni(spark, sc):
         .withColumn("data_creazione",current_timestamp()) \
         .withColumn("input_file", udfFilePath(func.col("input_file")))
 
-    df = df.withColumn("data_modifica", from_unixtime(udfModificationDate(func.col("input_file"))))
+    df = df.withColumn("data_modifica", to_timestamp(from_unixtime(udfModificationDate(func.col("input_file")))))
     df.printSchema()
     df.show()
+
+
 
     # salvataggio del DataFrame (solo se contiene informazioni)
     os.makedirs(destinationDirectory, exist_ok=True)
@@ -111,7 +113,7 @@ def opere_descrizioni(spark, sc):
     lista = df.select("input_file").rdd.flatMap(lambda x: x).collect()
     for a in list(set(lista)):
         fname = a.split("/")[-1]
-        shutil.move(fileDirectory + fname, moveDirectory + fname)
+        #shutil.move(fileDirectory + fname, moveDirectory + fname)
 
 """
 vengono lette tutti i file contenenti gli autori (ID, Nome, Anno).
@@ -199,8 +201,8 @@ def main():
         enableHiveSupport(). \
         getOrCreate()
 
-    opere_lista(spark)
-    #opere_descrizioni(spark, sc)
+    #opere_lista(spark)
+    opere_descrizioni(spark, sc)
     #opere_autori(spark, sc)
     #opere_immagini(spark, sc)
 
