@@ -95,10 +95,9 @@ def opere_descrizioni(spark, sc):
     udfFilePath = udf(Utilities.filePath)
     df = df.withColumn("id_opera", udfGetID(func.substring_index(func.col("input_file"),"/",-1)))\
         .withColumn("titolo_opera", initcap(udfGetTitolo(func.substring_index(func.col("input_file"),"/",-1)))) \
-        .withColumn("data_creazione",current_timestamp()) \
         .withColumn("input_file", udfFilePath(func.col("input_file")))
 
-    df = df.withColumn("data_modifica", to_timestamp(from_unixtime(udfModificationDate(func.col("input_file")))))
+    df = df.withColumn("data_creazione", to_timestamp(from_unixtime(udfModificationDate(func.col("input_file")))))
     df.printSchema()
     df.show()
 
@@ -113,7 +112,7 @@ def opere_descrizioni(spark, sc):
     lista = df.select("input_file").rdd.flatMap(lambda x: x).collect()
     for a in list(set(lista)):
         fname = a.split("/")[-1]
-        #shutil.move(fileDirectory + fname, moveDirectory + fname)
+        shutil.move(fileDirectory + fname, moveDirectory + fname)
 
 """
 vengono lette tutti i file contenenti gli autori (ID, Nome, Anno).
@@ -134,9 +133,10 @@ def opere_autori(spark, sc):
     df = spark.read.schema(schema).option("delimiter", ";").csv(fileDirectory)
     df.printSchema()
 
-
+    udfModificationDate = udf(Utilities.modificationDate)
     # modifica del dataframe (inserita la data, il secolo e sistemato il campo autore)
-    new = df.withColumn("nome", initcap("nome")).withColumn("data_creazione",current_timestamp())
+    new = df.withColumn("nome", initcap("nome")).withColumn("data_creazione", to_timestamp(from_unixtime(udfModificationDate(func.col("input_file")))))
+
     new.show()
 
     # salvataggio del DataFrame (solo se contiene informazioni)
