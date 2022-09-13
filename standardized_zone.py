@@ -10,7 +10,7 @@ from pyspark import SparkContext
 from pyspark.sql import SparkSession
 from pyspark.sql import DataFrame
 from pyspark.sql import Row
-from pyspark.sql.functions import col, avg, to_date, from_unixtime, initcap, udf
+from pyspark.sql.functions import col, avg, to_date, from_unixtime, initcap, udf, desc
 from pyspark.sql import functions as func
 from pyspark.sql.types import StructType, StructField, StringType, IntegerType, FloatType, DateType, TimestampType
 import os
@@ -24,13 +24,28 @@ def opere_lista(spark):
     fileDirectory = 'standardized/opere/lista/'
     moveDirectory = 'standardized/opere/lista/processed/'
     destinationDirectory = 'curated/opere/lista/'
-    files = os.listdir(fileDirectory)
+
+    directoryAutori = 'standardized/opere/autori/'
 
 
-    #legge tutti i file nella directory
-    df = spark.read.option("header", "true").option("inferSchema", "true").option("delimiter", ";").csv(fileDirectory)
-    df.printSchema()
-    df.show()
+    #recupero lista opere, la ordino e elimino duplicati
+    lista_opere = spark.read.option("header", "true").option("inferSchema", "true").option("delimiter", ";").csv(fileDirectory)
+    lista_opere = lista_opere.orderBy(desc("data_creazione")).drop_duplicates(subset=["id"])
+    lista_opere.show()
+
+
+    lista_autori = spark.read.option("header", "true").option("inferSchema", "true").option("delimiter", ";").csv(directoryAutori)
+    lista_autori = lista_autori.orderBy(desc("data_creazione")).drop_duplicates(subset=["id"])
+    lista_autori.show()
+
+    join = lista_opere.alias("lista_opere") \
+            .join(lista_autori.alias("lista_autori"), \
+                  (func.col("lista_opere.autore") == func.col("lista_autori.nome")),\
+                  "left"
+                  )\
+            .select(func.col("lista_opere.id").alias("id") )
+    join.show()
+
 
 
 

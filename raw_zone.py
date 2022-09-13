@@ -337,11 +337,11 @@ def main():
 
     #opere_lista(spark)
     #opere_descrizioni(spark, sc)
-    #opere_autori(spark, sc)
+    opere_autori(spark, sc)
     #opere_immagini(spark, sc)
     #visitatori_categorie(spark, sc)
     #visitatori_elenco(spark, sc)
-    visitatori_visite(spark, sc)
+    #visitatori_visite(spark, sc)
 
 if __name__ == "__main__":
     main()
