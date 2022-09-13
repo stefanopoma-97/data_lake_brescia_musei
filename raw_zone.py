@@ -167,15 +167,20 @@ def opere_immagini(spark, sc):
     df.printSchema()
     df.show()
 
+    udfModificationDate = udf(Utilities.modificationDate)
+    udfFilePath = udf(Utilities.filePath)
     udfGetID = udf(Utilities.getIDFromFile)
     udfGetTitolo = udf(Utilities.getTitoloFromFile)
-    udfRecreateSpace = udf(Utilities.recreateSPace)
-    df = df.withColumn("input_file", udfRecreateSpace(input_file_name()))\
+    #udfRecreateSpace = udf(Utilities.recreateSpace)
+    df = df.withColumn("input_file", udfFilePath(input_file_name()))\
         .withColumn("id_opera", udfGetID(func.substring_index(func.col("input_file"), "/", -1))) \
         .withColumn("titolo_opera", initcap(udfGetTitolo(func.substring_index(func.col("input_file"), "/", -1)))) \
-        .withColumn("data_creazione", current_timestamp())
+
+    df = df.withColumn("data_creazione", to_timestamp(from_unixtime(udfModificationDate(func.col("input_file")))))
+
 
     df.show(20, False)
+    df.printSchema()
 
     # salvataggio del DataFrame (solo se contiene informazioni)
     os.makedirs(destinationDirectory, exist_ok=True)
@@ -207,8 +212,8 @@ def main():
 
     #opere_lista(spark)
     #opere_descrizioni(spark, sc)
-    opere_autori(spark, sc)
-    #opere_immagini(spark, sc)
+    #opere_autori(spark, sc)
+    opere_immagini(spark, sc)
 
 if __name__ == "__main__":
     main()
