@@ -1,16 +1,15 @@
-# This is a sample Python script.
-
-# Press Maiusc+F10 to execute it or replace it with your code.
-# Press Double Shift to search everywhere for classes, files, tool windows, actions, and settings.
-
-
-def print_hi(name):
-    # Use a breakpoint in the code line below to debug your script.
-    print(f'Hi, {name}')  # Press Ctrl+F8 to toggle the breakpoint.
+from datetime import datetime, date
+from pyspark.sql import Row
+from pyspark import SparkContext
+from pyspark.sql import SparkSession
 
 
-# Press the green button in the gutter to run the script.
-if __name__ == '__main__':
-    print_hi('PyCharm')
+sc = SparkContext("local", "My App")
+spark = SparkSession.builder.getOrCreate()
 
-# See PyCharm help at https://www.jetbrains.com/help/pycharm/
+df = spark.createDataFrame([
+	Row(a=1, b=4., c='GFG1', d=date(2000, 8, 1),
+		e=datetime(2000, 8, 1, 12, 0))
+])
+
+df.show()
