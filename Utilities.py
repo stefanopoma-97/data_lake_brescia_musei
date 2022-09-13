@@ -14,6 +14,18 @@ def getIDFromFile(nome):
     s = nome.replace("%", " ")
     s = s.split("-")[-1].split(".")[0]
     return s
+"10-24"
+def getEtaMin(nome):
+    if nome == None:
+        return nome
+    else:
+        return nome.split("-")[0]
+
+def getEtaMax(nome):
+    if nome == None:
+        return nome
+    else:
+        return nome.split("-")[1]
 
 def getTitoloFromFile(nome):
     s = nome.replace("%20", " ")
