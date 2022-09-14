@@ -280,7 +280,6 @@ def visitatori_elenco(spark, sc):
         fname = a.split("/")[-1]
         shutil.move(fileDirectory + fname, moveDirectory + fname)
 
-#TODO visite
 def visitatori_visite(spark, sc):
     fileDirectory = 'raw/visitatori/visite/'
     moveDirectory = 'raw/visitatori/visite/processed/'
