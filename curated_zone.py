@@ -18,6 +18,7 @@ import Utilities
 
 
 def categorie_visitatori(spark):
+    print("credo dataframe per visitatori e categorie")
     directoryCategorie = 'curated/visitatori/categorie/'
     directoryVisitatori = 'curated/visitatori/elenco/'
 
@@ -42,16 +43,6 @@ def categorie_visitatori(spark):
                     )
         join.show()
 
-        """
-        out = join.groupBy("id", "nome").agg(
-            func.to_json(
-                func.collect_list(
-                    func.struct(*[func.col("categoria_id").alias("categoria_id") for c in join.columns])
-                )
-            ).alias("data")
-        )
-        """
-
         out = join.groupBy("id","nome").agg(func.collect_list("categoria_id").alias("categorie_id"))
         out.show(truncate=False)
         out.printSchema()
@@ -59,6 +50,75 @@ def categorie_visitatori(spark):
 
     else:
         print("Attenzione, mancano i visitaotori e/o le categorie")
+
+def opera(spark):
+    print("credo dataframe per opere")
+    directoryOpere = 'curated/opere/lista/'
+    directoryAutori = 'curated/opere/autori/'
+    directoryDescrizioni = 'curated/opere/descrizioni/'
+    directoryImmagini = 'curated/opere/immagini/'
+
+    if (Utilities.check_csv_files(directoryOpere)):
+        opere = spark.read.option("header", "true").option("inferSchema", "true").option("delimiter",
+                                                                                                   ";").csv(
+            directoryOpere)
+        autori = spark.read.option("header", "true").option("inferSchema", "true").option("delimiter",
+                                                                                                   ";").csv(
+            directoryAutori)
+        descrizioni = spark.read.option("header", "true").option("multiline",True).option("inferSchema", "true").option("delimiter",
+                                                                                          ";").csv(
+            directoryDescrizioni)
+        immagini = spark.read.option("header", "true").option("inferSchema", "true").option("delimiter",
+                                                                                          ";").csv(
+            directoryImmagini)
+
+
+        opere.show()
+        autori.show()
+        descrizioni.show()
+        immagini.show()
+
+        #join opera con autori
+        join_autori = opere.alias("opere") \
+            .join(autori.alias("autori"), \
+                  (func.col("opere.autore") == func.col("autori.nome")), \
+                  "left"
+                  ) \
+            .select(func.col("opere.*"), func.col("autori.id").alias("autore_id"))
+
+
+        join_descrizione = opere.alias("opere") \
+            .join(descrizioni.alias("descrizioni"), \
+                  (func.col("opere.id") == func.col("descrizioni.id_opera")), \
+                  "left"
+                  )\
+            .select(func.col("opere.*"), func.col("descrizioni.descrizione").alias("descrizione"))
+
+        join_immagini = opere.alias("opere") \
+            .join(immagini.alias("immagini"), \
+                  (func.col("opere.id") == func.col("immagini.id_opera")), \
+                  "left"
+                  ) \
+            .select(func.col("opere.id").alias("id"), func.col("immagini.input_file").alias("file"))\
+            .groupBy("id").agg(func.collect_list("file").alias("file"))
+
+    #######
+        join = join_autori.alias("opere") \
+            .join(join_descrizione.alias("descrizioni"), \
+                  (func.col("opere.id") == func.col("descrizioni.id")), \
+                  "left"
+                  )\
+            .select(func.col("opere.*"),func.col("descrizioni.descrizione").alias("descrizione"))\
+            .join(join_immagini.alias("immagini"), \
+              (func.col("opere.id") == func.col("immagini.id")), \
+              "left"
+              ) \
+            .select(func.col("opere.*"),func.col("immagini.file").alias("file"))
+
+        join.show()
+
+    else:
+        print("Attenzione, non ci sono opere")
 
 
 def main():
@@ -73,7 +133,12 @@ def main():
         enableHiveSupport(). \
         getOrCreate()
 
-    categorie_visitatori(spark)
+    #categorie_visitatori(spark)
+    opera(spark)
+    #TODO join di visita, visitatore e opera per creare dataframe visite completo, ogni visita ha id, controllo che ci sia tutto e nel caso null
+    #TODO join di opera con autore (metto id o null), 
+
+
 
 
 
