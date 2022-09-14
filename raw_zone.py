@@ -163,36 +163,40 @@ def opere_immagini(spark, sc):
     moveDirectory = 'raw/opere/immagini/processed/'
     destinationDirectory = 'standardized/opere/immagini/'
 
-    df = spark.read.text(fileDirectory)
-    df.printSchema()
-    df.show()
-
     udfModificationDate = udf(Utilities.modificationDate)
     udfFilePath = udf(Utilities.filePath)
     udfGetID = udf(Utilities.getIDFromFile)
     udfGetTitolo = udf(Utilities.getTitoloFromFile)
-    #udfRecreateSpace = udf(Utilities.recreateSpace)
-    df = df.withColumn("input_file", udfFilePath(input_file_name()))\
-        .withColumn("id_opera", udfGetID(func.substring_index(func.col("input_file"), "/", -1))) \
+
+    schema = StructType([ \
+        StructField("input_file", StringType(), True),
+        StructField("immagine", StringType(), True)])
+
+    # legge tutti i file nella directory
+    rdd = sc.wholeTextFiles(fileDirectory)
+    df1 = spark.createDataFrame(rdd, schema)
+    df = df1.withColumn("input_file", udfFilePath(func.col("input_file")))
+    df.show()
+    print("Numero di immagini trovate: " + str(df.count()))
+
+
+
+
+    df = df.withColumn("id_opera", udfGetID(func.substring_index(func.col("input_file"), "/", -1))) \
         .withColumn("titolo_opera", initcap(udfGetTitolo(func.substring_index(func.col("input_file"), "/", -1)))) \
 
     df = df.withColumn("data_creazione", to_timestamp(from_unixtime(udfModificationDate(func.col("input_file")))))
 
 
-    df.show(20, False)
+    df.show(20)
     df.printSchema()
 
     # salvataggio del DataFrame (solo se contiene informazioni)
     os.makedirs(destinationDirectory, exist_ok=True)
     if (df.count() > 0):
         df.select("input_file","id_opera","titolo_opera","data_creazione").write.mode("append").option("header", "true").option("delimiter", ";").csv(destinationDirectory)
-    """
-    os.makedirs(moveDirectory, exist_ok=True)
-    lista = df.select("input_file").rdd.flatMap(lambda x: x).collect()
-    for a in list(set(lista)):
-        fname = a.split("/")[-1]
-        shutil.move(fileDirectory + fname, moveDirectory + fname)
-    """
+
+    Utilities.move_input_file_from_df(moveDirectory, fileDirectory, df)
 
 def visitatori_categorie(spark, sc):
     fileDirectory = 'raw/visitatori/categorie/'
@@ -336,8 +340,8 @@ def main():
 
     #opere_lista(spark)
     #opere_descrizioni(spark, sc)
-    opere_autori(spark, sc)
-    #opere_immagini(spark, sc)
+    #opere_autori(spark, sc)
+    opere_immagini(spark, sc)
     #visitatori_categorie(spark, sc)
     #visitatori_elenco(spark, sc)
     #visitatori_visite(spark, sc)

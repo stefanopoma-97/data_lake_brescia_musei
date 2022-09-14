@@ -96,6 +96,85 @@ def visitatori(spark):
     else:
         print("Non c'è nessuna nuovo visitatore nella standardized")
 
+def visite(spark):
+    print("inizio a spostare le visite da Standardized a Curated")
+    fileDirectory = 'standardized/visitatori/visite/'
+    moveDirectory = 'standardized/visitatori/visite/processed/'
+    destinationDirectory = 'curated/visitatori/visite/'
+
+    if (Utilities.check_csv_files(fileDirectory)):
+        lista_categorie = spark.read.option("header", "true").option("inferSchema", "true").option("delimiter", ";").csv(
+            fileDirectory)
+        lista_categorie_no_duplicates = Utilities.drop_duplicates_row(lista_categorie, "data_creazione",["id"])
+        print("Visite trovate nella standardized (no dupplicati)")
+        lista_categorie_no_duplicates.show()
+
+        os.makedirs(destinationDirectory, exist_ok=True)
+        if (Utilities.check_csv_files(destinationDirectory)):
+            lista_categorie_salvate=spark.read.option("header", "true").option("inferSchema", "true").option("delimiter", ";").csv(
+            destinationDirectory)
+            print("Visitatori trovati nella curated")
+            lista_categorie_salvate.show()
+            union = lista_categorie_no_duplicates.union(lista_categorie_salvate)
+            union = Utilities.drop_duplicates_row(union, "data_creazione",["id"])
+            print("Dataframe uniti")
+            union.show()
+            union.write.mode("append").option("header", "true").option("delimiter", ";").csv(
+                destinationDirectory)
+            Utilities.remove_input_file(destinationDirectory, lista_categorie_salvate)
+
+
+        else:
+            print("non ci sono visitatori già salvati")
+            os.makedirs(destinationDirectory, exist_ok=True)
+            if (lista_categorie_no_duplicates.count() > 0):
+                lista_categorie_no_duplicates.write.mode("append").option("header", "true").option("delimiter", ";").csv(
+                    destinationDirectory)
+
+        #Utilities.move_input_file(moveDirectory, fileDirectory, lista_categorie)
+    else:
+        print("Non c'è nessuna nuovo visitatore nella standardized")
+
+def immagini(spark):
+    print("inizio a spostare le immagini da Standardized a Curated")
+    fileDirectory = 'standardized/opere/immagini/'
+    moveDirectory = 'standardized/opere/immagini/processed/'
+    destinationDirectory = 'curated/opere/immagini/'
+
+    if (Utilities.check_csv_files(fileDirectory)):
+        lista_categorie = spark.read.option("header", "true").option("inferSchema", "true").option("delimiter", ";").csv(
+            fileDirectory)
+        lista_categorie_no_duplicates = Utilities.drop_duplicates_row(lista_categorie, "data_creazione",["input_file","id_opera"])
+        print("Immagini trovate nella standardized (no dupplicati)")
+        lista_categorie_no_duplicates.show()
+
+        os.makedirs(destinationDirectory, exist_ok=True)
+        if (Utilities.check_csv_files(destinationDirectory)):
+            lista_categorie_salvate=spark.read.option("header", "true").option("inferSchema", "true").option("delimiter", ";").csv(
+            destinationDirectory)
+            print("Visitatori trovati nella curated")
+            lista_categorie_salvate.show()
+            union = lista_categorie_no_duplicates.union(lista_categorie_salvate)
+            union = Utilities.drop_duplicates_row(union, "data_creazione",["id"])
+            print("Dataframe uniti")
+            union.show()
+            union.write.mode("append").option("header", "true").option("delimiter", ";").csv(
+                destinationDirectory)
+            Utilities.remove_input_file(destinationDirectory, lista_categorie_salvate)
+
+
+        else:
+            print("non ci sono visitatori già salvati")
+            os.makedirs(destinationDirectory, exist_ok=True)
+            if (lista_categorie_no_duplicates.count() > 0):
+                lista_categorie_no_duplicates.write.mode("append").option("header", "true").option("delimiter", ";").csv(
+                    destinationDirectory)
+
+        #Utilities.move_input_file(moveDirectory, fileDirectory, lista_categorie)
+    else:
+        print("Non c'è nessuna nuovo visitatore nella standardized")
+
+
 """
 
 """
@@ -143,10 +222,10 @@ def main():
     #opere_lista(spark)
 
     #categoria_visitatori(spark)
-    visitatori(spark)
+    #visitatori(spark)
+    #visite(spark)
+    immagini(spark)
 
-    #TODO elenco visitatori
-    # TODO elenco visite
     # TODO elenco immagini
     # TODO elenco autori
     # TODO elenco descrizioni
