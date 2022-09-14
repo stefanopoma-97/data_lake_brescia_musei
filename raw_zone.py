@@ -112,7 +112,7 @@ def opere_descrizioni(spark, sc):
     lista = df.select("input_file").rdd.flatMap(lambda x: x).collect()
     for a in list(set(lista)):
         fname = a.split("/")[-1]
-        shutil.move(fileDirectory + fname, moveDirectory + fname)
+        #shutil.move(fileDirectory + fname, moveDirectory + fname)
 
 """
 vengono lette tutti i file contenenti gli autori (ID, Nome, Anno).
@@ -339,9 +339,9 @@ def main():
         getOrCreate()
 
     #opere_lista(spark)
-    #opere_descrizioni(spark, sc)
+    opere_descrizioni(spark, sc)
     #opere_autori(spark, sc)
-    opere_immagini(spark, sc)
+    #opere_immagini(spark, sc)
     #visitatori_categorie(spark, sc)
     #visitatori_elenco(spark, sc)
     #visitatori_visite(spark, sc)
