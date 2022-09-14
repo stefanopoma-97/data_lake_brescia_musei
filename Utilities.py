@@ -64,9 +64,7 @@ def move_input_file(moveDirectory, fileDirectory, df):
     data = df.withColumn("input_file", input_file_name())
     lista = data.select("input_file").rdd.flatMap(lambda x: x).collect()
     for a in list(set(lista)):
-        print(a)
         fname = a.split("/")[-1]
-        print(fname)
         shutil.move(fileDirectory + fname, moveDirectory + fname)
 
 def move_input_file_from_df(moveDirectory, fileDirectory, df):
