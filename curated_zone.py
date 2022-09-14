@@ -32,6 +32,8 @@ def categorie_visitatori(spark):
         lista_categorie.show()
         lista_visitatori.show()
 
+        #TODO si potrebbe prendere solo i visitatori nuovi
+        #TODO poi separatamente vedere se c'è una categoria nuova e fare il join con tutti i visitatori
         join = lista_visitatori.alias("visitatori") \
             .join(lista_categorie.alias("categorie"), \
                   (func.col("visitatori.eta") >= func.col("categorie.eta_min")) & (func.col("visitatori.eta") <= func.col("categorie.eta_max")), \
@@ -78,6 +80,7 @@ def opera(spark):
         descrizioni.show()
         immagini.show()
 
+        #TODO si potrebbe fare solo con opere senza autore o nuove (e tutti gli autori)
         #join opera con autori
         join_autori = opere.alias("opere") \
             .join(autori.alias("autori"), \
@@ -86,7 +89,7 @@ def opera(spark):
                   ) \
             .select(func.col("opere.*"), func.col("autori.id").alias("autore_id"))
 
-
+        #TODO si potrebbe fare solo con opere nuove (o senza descrizione)
         join_descrizione = opere.alias("opere") \
             .join(descrizioni.alias("descrizioni"), \
                   (func.col("opere.id") == func.col("descrizioni.id_opera")), \
@@ -94,6 +97,7 @@ def opera(spark):
                   )\
             .select(func.col("opere.*"), func.col("descrizioni.descrizione").alias("descrizione"))
 
+        #TODO solo opere nuove o senza descrizione
         join_immagini = opere.alias("opere") \
             .join(immagini.alias("immagini"), \
                   (func.col("opere.id") == func.col("immagini.id_opera")), \
@@ -102,7 +106,7 @@ def opera(spark):
             .select(func.col("opere.id").alias("id"), func.col("immagini.input_file").alias("file"))\
             .groupBy("id").agg(func.collect_list("file").alias("file"))
 
-    #######
+
         join = join_autori.alias("opere") \
             .join(join_descrizione.alias("descrizioni"), \
                   (func.col("opere.id") == func.col("descrizioni.id")), \
@@ -121,6 +125,51 @@ def opera(spark):
         print("Attenzione, non ci sono opere")
 
 
+def visita(spark):
+    print("credo dataframe per visite")
+    directoryOpere = 'curated/opere/lista/'
+    directoryVisitatori = 'curated/visitatori/elenco/'
+    directoryVisite = 'curated/visitatori/visite/'
+
+    if (Utilities.check_csv_files(directoryOpere)):
+        opere = spark.read.option("header", "true").option("inferSchema", "true").option("delimiter",
+                                                                                         ";").csv(
+            directoryOpere)
+        visitatori = spark.read.option("header", "true").option("inferSchema", "true").option("delimiter",
+                                                                                          ";").csv(
+            directoryVisitatori)
+        visite = spark.read.option("header", "true").option("multiline", True).option("inferSchema",
+                                                                                           "true").option("delimiter",
+                                                                                                          ";").csv(
+            directoryVisite)
+
+
+        opere.show()
+        visitatori.show()
+        visite.show()
+
+        #TODO si potrebbe partire solo dalle visite nuove
+        join = visite.alias("visite") \
+            .join(opere.alias("opere"), \
+                  (func.col("visite.opera_id") == func.col("opere.id")), \
+                  "left"
+                  ) \
+            .select(func.col("visite.*"), func.col("opere.id").alias("opera"))
+        join = join.alias("visite") \
+            .join(visitatori.alias("visitatori"),
+                  (func.col("visite.visitatore_id") == func.col("visitatori.id")), \
+                  "left"
+                  ) \
+            .select(func.col("visite.*"), func.col("visitatori.id").alias("visitatore"))
+
+        join.where(join.visitatore.isNotNull() & join.opera.isNotNull()).show()
+
+        #TODO le visite escluse potrebbero non essere considerate come fatte
+
+    else:
+        print("Attenzione, non ci sono opere")
+
+
 def main():
     print("Da Curated a Application Zone")
 
@@ -134,9 +183,9 @@ def main():
         getOrCreate()
 
     #categorie_visitatori(spark)
-    opera(spark)
+    #opera(spark)
+    visita(spark)
     #TODO join di visita, visitatore e opera per creare dataframe visite completo, ogni visita ha id, controllo che ci sia tutto e nel caso null
-    #TODO join di opera con autore (metto id o null), 
 
 
 
