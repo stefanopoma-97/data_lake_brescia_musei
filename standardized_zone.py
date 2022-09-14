@@ -248,28 +248,28 @@ def descrizioni(spark):
                 lista_categorie_no_duplicates.write.mode("append").option("header", "true").option("delimiter", ";").csv(
                     destinationDirectory)
 
-        #Utilities.move_input_file(moveDirectory, fileDirectory, lista_categorie)
+        Utilities.move_input_file(moveDirectory, fileDirectory, lista_categorie)
     else:
         print("Non c'è nessuna nuovo visitatore nella standardized")
 
 def opere(spark):
-    print("inizio a spostare gli autori da Standardized a Curated")
-    fileDirectory = 'standardized/opere/autori/'
-    moveDirectory = 'standardized/opere/autori/processed/'
-    destinationDirectory = 'curated/opere/autori/'
+    print("inizio a spostare le opere da Standardized a Curated")
+    fileDirectory = 'standardized/opere/lista/'
+    moveDirectory = 'standardized/opere/lista/processed/'
+    destinationDirectory = 'curated/opere/lista/'
 
     if (Utilities.check_csv_files(fileDirectory)):
         lista_categorie = spark.read.option("header", "true").option("inferSchema", "true").option("delimiter", ";").csv(
             fileDirectory)
         lista_categorie_no_duplicates = Utilities.drop_duplicates_row(lista_categorie, "data_creazione",["id"])
-        print("Autori trovate nella standardized (no dupplicati)")
+        print("Opere trovate nella standardized (no dupplicati)")
         lista_categorie_no_duplicates.show()
 
         os.makedirs(destinationDirectory, exist_ok=True)
         if (Utilities.check_csv_files(destinationDirectory)):
             lista_categorie_salvate=spark.read.option("header", "true").option("inferSchema", "true").option("delimiter", ";").csv(
             destinationDirectory)
-            print("Autori trovati nella curated")
+            print("Opere trovate nella curated")
             lista_categorie_salvate.show()
             union = lista_categorie_no_duplicates.union(lista_categorie_salvate)
             union = Utilities.drop_duplicates_row(union, "data_creazione",["id"])
@@ -281,7 +281,7 @@ def opere(spark):
 
 
         else:
-            print("non ci sono visitatori già salvati")
+            print("non ci sono opere già salvati")
             os.makedirs(destinationDirectory, exist_ok=True)
             if (lista_categorie_no_duplicates.count() > 0):
                 lista_categorie_no_duplicates.write.mode("append").option("header", "true").option("delimiter", ";").csv(
@@ -365,11 +365,7 @@ def main():
         opere(spark)
     elif (valore == '0'):
         print()
-
-
-
-    # TODO elenco descrizioni
-    # TODO elenco opere
+        #TODO implementare tutti
 
 
 

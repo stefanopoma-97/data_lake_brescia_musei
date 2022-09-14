@@ -66,6 +66,10 @@ def move_input_file(moveDirectory, fileDirectory, df):
     for a in list(set(lista)):
         fname = a.split("/")[-1]
         shutil.move(fileDirectory + fname, moveDirectory + fname)
+    files = os.listdir(fileDirectory)
+    for fname in files:
+        if (os.path.isfile(fileDirectory + fname)):
+            os.remove(fileDirectory+fname)
 
 def move_input_file_from_df(moveDirectory, fileDirectory, df):
     os.makedirs(moveDirectory, exist_ok=True)
