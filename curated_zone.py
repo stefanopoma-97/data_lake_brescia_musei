@@ -17,8 +17,8 @@ import Utilities
 
 
 
-def categorie_visitatori(spark):
-    print("credo dataframe per visitatori e categorie")
+def get_visitatori(spark):
+    print("GET visitatori e array categorie")
     directoryCategorie = 'curated/visitatori/categorie/'
     directoryVisitatori = 'curated/visitatori/elenco/'
 
@@ -48,6 +48,7 @@ def categorie_visitatori(spark):
         out = join.groupBy("id","nome").agg(func.collect_list("categoria_id").alias("categorie_id"))
         out.show(truncate=False)
         out.printSchema()
+        return out
 
 
     else:
@@ -169,6 +170,41 @@ def visita(spark):
     else:
         print("Attenzione, non ci sono opere")
 
+def get_categorie(spark):
+    print("GET Categorie")
+    directoryCategorie = 'curated/visitatori/categorie/'
+
+
+    if (Utilities.check_csv_files(directoryCategorie)):
+        categorie = spark.read.option("header", "true").option("inferSchema", "true").option("delimiter",
+                                                                                         ";").csv(
+            directoryCategorie)
+
+        categorie.show()
+
+        # TODO si potrebbe estrarre solo quelle nuove
+        return categorie
+
+    else:
+        print("Attenzione, non ci sono nuove categorie")
+
+def get_immagini(spark):
+    print("GET Immagini")
+    directoryCategorie = 'curated/opere/immagini/'
+
+
+    if (Utilities.check_csv_files(directoryCategorie)):
+        categorie = spark.read.option("header", "true").option("inferSchema", "true").option("delimiter",
+                                                                                         ";").csv(
+            directoryCategorie)
+
+        categorie.show()
+
+        # TODO si potrebbe estrarre solo quelle nuove
+        return categorie
+
+    else:
+        print("Attenzione, non ci sono nuove categorie")
 
 def main():
     print("Da Curated a Application Zone")
@@ -191,7 +227,7 @@ def main():
                    "4) Tutti\n")
 
     if (valore == '1'):
-        categorie_visitatori(spark)
+        get_visitatori(spark)
     elif (valore == '2'):
         opera(spark)
     elif (valore == '3'):
@@ -202,7 +238,11 @@ def main():
 
     #categorie_visitatori(spark)
     #opera(spark)
-    visita(spark)
+    #visita(spark)
+
+    get_categorie(spark)
+    get_immagini(spark)
+    get_autori(spark)
 
 
 

@@ -168,15 +168,16 @@ def opere_autori(spark, sc):
         print("Non ci sono autori nella Raw Zone")
 
 def opere_immagini(spark, sc):
-
+    #TODO convertine in jpeg
     fileDirectory = 'raw/opere/immagini/'
     moveDirectory = 'raw/opere/immagini/processed/'
     destinationDirectory = 'standardized/opere/immagini/'
 
-    if (Utilities.check_csv_files(fileDirectory)):
+    if (Utilities.check_jpeg_files(fileDirectory)):
 
         udfModificationDate = udf(Utilities.modificationDate)
         udfFilePath = udf(Utilities.filePath)
+        udfFilePathInProcessed = udf(Utilities.filePathInProcessed)
         udfGetID = udf(Utilities.getIDFromFile)
         udfGetTitolo = udf(Utilities.getTitoloFromFile)
 
@@ -197,16 +198,17 @@ def opere_immagini(spark, sc):
 
         df = df.withColumn("data_creazione", to_timestamp(from_unixtime(udfModificationDate(func.col("input_file")))))
 
+        new = df.withColumn("input_file", udfFilePathInProcessed(func.col("input_file")))
+        new.select("input_file").show(2, False)
+        new.printSchema()
 
-        df.show(20)
-        df.printSchema()
+        if (new.count() > 0):
+            new.select("input_file","id_opera","titolo_opera","data_creazione").write.mode("append").option("header", "true").option("delimiter", ";").csv(destinationDirectory)
 
         # salvataggio del DataFrame (solo se contiene informazioni)
-        os.makedirs(destinationDirectory, exist_ok=True)
-        if (df.count() > 0):
-            df.select("input_file","id_opera","titolo_opera","data_creazione").write.mode("append").option("header", "true").option("delimiter", ";").csv(destinationDirectory)
-
         Utilities.move_input_file_from_df(moveDirectory, fileDirectory, df)
+
+
     else:
         print("Non ci sono immagini nella Raw one")
 

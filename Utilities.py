@@ -44,6 +44,15 @@ def filePath(origin):
     s = s.replace("//", "")
     return s
 
+def filePathInProcessed(origin):
+    s = origin.replace("%20", " ")
+    s = s.replace("file:/", "")
+    s = s.replace("//", "")
+    old = "/"
+    new = "/processed/"
+    s = new.join(s.rsplit(old, 1))
+    return s
+
 """
 Funzione per controllare che in una determinata directory sia presente un file CSV
 """
@@ -53,6 +62,15 @@ def check_csv_files(directory):
     for fname in files:
         if (os.path.isfile(directory + fname)):
             if (fname.split(".")[-1] == "csv"):
+                file=True
+    return file
+
+def check_jpeg_files(directory):
+    file = False
+    files = os.listdir(directory)
+    for fname in files:
+        if (os.path.isfile(directory + fname)):
+            if (fname.split(".")[-1] == "jpeg") or (fname.split(".")[-1] == "png") or (fname.split(".")[-1] == "jpg"):
                 file=True
     return file
 
@@ -77,6 +95,10 @@ def move_input_file_from_df(moveDirectory, fileDirectory, df):
     for a in list(set(lista)):
         fname = a.split("/")[-1]
         shutil.move(fileDirectory + fname, moveDirectory + fname)
+    files = os.listdir(fileDirectory)
+    for fname in files:
+        if (os.path.isfile(fileDirectory + fname)):
+            os.remove(fileDirectory + fname)
 
 def remove_input_file(fileDirectory, df):
     data = df.withColumn("input_file", input_file_name())
