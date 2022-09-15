@@ -76,10 +76,16 @@ def get_opere(spark):
                                                                                           ";").csv(
             directoryImmagini)
 
-
+        print("opere")
         opere.show()
+
+        print("autori")
         autori.show()
+
+        print("descrizioni")
         descrizioni.show()
+
+        print("immagini")
         immagini.show()
 
         #TODO si potrebbe fare solo con opere senza autore o nuove (e tutti gli autori)
@@ -89,7 +95,10 @@ def get_opere(spark):
                   (func.col("opere.autore") == func.col("autori.nome")), \
                   "left"
                   ) \
-            .select(func.col("opere.*"), func.col("autori.id").alias("autore_id"))
+            .select(func.col("opere.id").alias("id"), func.col("autori.id").alias("autore_id"))
+
+        print("join autori")
+        join_autori.show()
 
         #TODO si potrebbe fare solo con opere nuove (o senza descrizione)
         join_descrizione = opere.alias("opere") \
@@ -97,7 +106,10 @@ def get_opere(spark):
                   (func.col("opere.id") == func.col("descrizioni.id_opera")), \
                   "left"
                   )\
-            .select(func.col("opere.*"), func.col("descrizioni.descrizione").alias("descrizione"))
+            .select(func.col("opere.id").alias("id"), func.col("descrizioni.descrizione").alias("descrizione"))
+
+        print("join descrizione")
+        join_descrizione.show()
 
         #TODO solo opere nuove o senza descrizione
         join_immagini = opere.alias("opere") \
@@ -108,18 +120,28 @@ def get_opere(spark):
             .select(func.col("opere.id").alias("id"), func.col("immagini.input_file").alias("file"))\
             .groupBy("id").agg(func.collect_list("file").alias("file"))
 
+        print("join immagini")
+        join_immagini.show()
 
-        join = join_autori.alias("opere") \
+
+        join = opere.alias("opere") \
             .join(join_descrizione.alias("descrizioni"), \
                   (func.col("opere.id") == func.col("descrizioni.id")), \
                   "left"
-                  )\
-            .select(func.col("opere.*"),func.col("descrizioni.descrizione").alias("descrizione"))\
+                  ) \
             .join(join_immagini.alias("immagini"), \
-              (func.col("opere.id") == func.col("immagini.id")), \
-              "left"
-              ) \
-            .select(func.col("opere.*"),func.col("immagini.file").alias("file"))
+                  (func.col("opere.id") == func.col("immagini.id")), \
+                  "left"
+                  ) \
+            .join(join_autori.alias("autori"), \
+                  (func.col("opere.id") == func.col("autori.id")), \
+                  "left"
+                  ) \
+            .select(func.col("opere.*"),
+                    func.col("descrizioni.descrizione").alias("descrizione"),
+                    func.col("immagini.file").alias("immagini"),
+                    func.col("autori.autore_id").alias("autore_id")
+                    )
 
         join.show()
         return join
@@ -165,8 +187,8 @@ def get_visite(spark):
                   ) \
             .select(func.col("visite.*"), func.col("visitatori.id").alias("visitatore"))
 
-        join.where(join.visitatore.isNotNull() & join.opera.isNotNull()).show()
-        return join
+        return join.where(join.visitatore.isNotNull() & join.opera.isNotNull())
+
 
         #TODO le visite escluse potrebbero non essere considerate come fatte
 
@@ -276,29 +298,113 @@ def write_neo4j(spark):
         .option("relationship.target.save.mode", "overwrite") \
         .save()
 
-
-# .option("relationship.properties", "id") \
-
-    # get_immagini(spark)
-    # get_autori(spark)
-    # get_opere(spark)
-    # get_visite(spark)
-
-    #test scrittura
-    """x = spark.read.option("multiline", "true").json(
-        r"C:\spark-3.3.0-bin-hadoop3\spark-3.3.0-bin-hadoop3\data\EmployeeData.json")
-    x.show()
-    y = x.select("email", "id", "gender")
-    y.show()
-
-    # creo nodo email
-    y.write \
+    #Creo nodo immagine
+    immagini = get_immagini(spark)
+    immagini.write \
         .mode("overwrite") \
         .format("org.neo4j.spark.DataSource") \
         .option("url", "bolt://localhost:7687") \
-        .option("labels", ":Email") \
-        .option("node.keys", "email") \
-        .save()"""
+        .option("labels", ":Immagine") \
+        .option("node.keys", "input_file") \
+        .save()
+
+    #creo nodo autore
+    autori = get_autori(spark)
+    autori.write \
+        .mode("overwrite") \
+        .format("org.neo4j.spark.DataSource") \
+        .option("url", "bolt://localhost:7687") \
+        .option("labels", ":Autore") \
+        .option("node.keys", "id") \
+        .save()
+
+    #creo opere
+    opere = get_opere(spark)
+    opere.drop("immagini","autore_id").write \
+        .mode("overwrite") \
+        .format("org.neo4j.spark.DataSource") \
+        .option("url", "bolt://localhost:7687") \
+        .option("labels", ":Opera") \
+        .option("node.keys", "id") \
+        .save()
+    opere.show()
+
+    # opera->autore
+    #necessario toglere le relazioni null
+    opere.filter(opere.autore_id.isNotNull()).write \
+        .mode("overwrite") \
+        .format("org.neo4j.spark.DataSource") \
+        .option("url", "bolt://localhost:7687") \
+        .option("relationship", "CREATA") \
+        .option("relationship.save.strategy", "keys") \
+        .option("relationship.source.labels", ":Opera") \
+        .option("relationship.source.save.mode", "overwrite") \
+        .option("relationship.source.node.keys", "id") \
+        .option("relationship.target.labels", ":Autore") \
+        .option("relationship.target.node.keys", "autore_id:id") \
+        .option("relationship.target.save.mode", "overwrite") \
+        .save()
+
+    df2 = opere.select(opere.id, explode(opere.immagini).alias("immagini"))
+    df2.printSchema()
+    df2.show()
+
+    #opera->immagini
+    df2.write \
+        .mode("overwrite") \
+        .format("org.neo4j.spark.DataSource") \
+        .option("url", "bolt://localhost:7687") \
+        .option("relationship", "IMMAGINI") \
+        .option("relationship.save.strategy", "keys") \
+        .option("relationship.source.labels", ":Opera") \
+        .option("relationship.source.save.mode", "overwrite") \
+        .option("relationship.source.node.keys", "id") \
+        .option("relationship.target.labels", ":Immagine") \
+        .option("relationship.target.node.keys", "immagini:input_file") \
+        .option("relationship.target.save.mode", "overwrite") \
+        .save()
+
+
+    #creo visite
+    visite = get_visite(spark)
+    print("Visite prese")
+    visite.show()
+    visite.drop("opera", "visitatore").write \
+        .mode("overwrite") \
+        .format("org.neo4j.spark.DataSource") \
+        .option("url", "bolt://localhost:7687") \
+        .option("labels", ":Visita") \
+        .option("node.keys", "id") \
+        .save()
+    visita_r = visite.select("id","visitatore_id","opera_id")
+    visita_r.show()
+    visita_r.write \
+        .mode("overwrite") \
+        .format("org.neo4j.spark.DataSource") \
+        .option("url", "bolt://localhost:7687") \
+        .option("relationship", "VISITA_OPERA") \
+        .option("relationship.save.strategy", "keys") \
+        .option("relationship.source.labels", ":Visita") \
+        .option("relationship.source.save.mode", "overwrite") \
+        .option("relationship.source.node.keys", "id") \
+        .option("relationship.target.labels", ":Opera") \
+        .option("relationship.target.node.keys", "opera_id:id") \
+        .option("relationship.target.save.mode", "overwrite") \
+        .save()
+    visita_r.write \
+        .mode("overwrite") \
+        .format("org.neo4j.spark.DataSource") \
+        .option("url", "bolt://localhost:7687") \
+        .option("relationship", "VISITA_VISITATORE") \
+        .option("relationship.save.strategy", "keys") \
+        .option("relationship.source.labels", ":Visita") \
+        .option("relationship.source.save.mode", "overwrite") \
+        .option("relationship.source.node.keys", "id") \
+        .option("relationship.target.labels", ":Visitatore") \
+        .option("relationship.target.node.keys", "visitatore_id:id") \
+        .option("relationship.target.save.mode", "overwrite") \
+        .save()
+
 
 def main():
     print("Da Curated a Application Zone")
