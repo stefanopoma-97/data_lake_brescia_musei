@@ -131,7 +131,7 @@ def visite(spark):
                 lista_categorie_no_duplicates.write.mode("append").option("header", "true").option("delimiter", ";").csv(
                     destinationDirectory)
 
-        #Utilities.move_input_file(moveDirectory, fileDirectory, lista_categorie)
+        Utilities.move_input_file(moveDirectory, fileDirectory, lista_categorie)
     else:
         print("Non c'è nessuna nuovo visitatore nella standardized")
 
@@ -170,7 +170,7 @@ def immagini(spark):
                 lista_categorie_no_duplicates.write.mode("append").option("header", "true").option("delimiter", ";").csv(
                     destinationDirectory)
 
-        #Utilities.move_input_file(moveDirectory, fileDirectory, lista_categorie)
+        Utilities.move_input_file(moveDirectory, fileDirectory, lista_categorie)
     else:
         print("Non c'è nessuna nuovo visitatore nella standardized")
 
