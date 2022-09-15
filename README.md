@@ -55,6 +55,12 @@ NEO4J
     testato con Scala 2.12 e Spark 3.0+ quindi con il connettore: neo4j-connector-apache-spark_2.12-4.0.1_for_spark_3.jar
 3) Sulla seguente pagina scaricare il file jar del connettore individuato: https://github.com/neo4j-contrib/neo4j-spark-connector/releases
 4) Inserire il file jar in: C:\spark-3.3.0-bin-hadoop3\spark-3.3.0-bin-hadoop3\bin\neo4j-connector-apache-spark_2.12-4.1.4_for_spark_3.jar
-
-    
+5) Scaricare e installare Neo4j Desktop dal sito ufficiale
+6) Eseguire l'applicazione e creare un nuovo progetto chiamato "CMS Brescia Musei"
+7) Premere su "Add" e aggiungere un "Local DBMS"
+8) Nome: "cms_brescia", Password: "neo4j_cms_brescia"
+9) Confermare e attendere che il database venga creato
+10) Premere su "Start"
+11) Successivamente premere su "Open" per aprire da vista da Browser
+1
    
