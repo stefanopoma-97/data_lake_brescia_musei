@@ -25,48 +25,49 @@ Viene inserito l'header e il nuovo dataframe viene salvato nella standardized zo
 I file processati vengono inseriti nella sotto-cartella processed, in modo che non vengano analizzati due volte
 """
 def opere_lista(spark):
+    print("inizio a spostare le opere da Raw a Standardized")
     fileDirectory = 'raw/opere/lista/'
     moveDirectory = 'raw/opere/lista/processed/'
     destinationDirectory = 'standardized/opere/lista/'
 
-    #schema del csv
-    schema = StructType([ \
-        StructField("id", StringType(), True), \
-        StructField("tagid", IntegerType(), True), \
-        StructField("titolo", StringType(), True), \
-        StructField("tipologia", StringType(), True), \
-        StructField("anno", IntegerType(), True), \
-        StructField("provenienza", StringType(), True), \
-        StructField("autore", StringType(), True),\
-        StructField("timestamp", IntegerType(), True)])
 
-    #legge tutti i file nella directory
-    df = spark.read.schema(schema).option("delimiter", ";").csv(fileDirectory)
-    df.printSchema()
+    if (Utilities.check_csv_files(fileDirectory)):
+        # schema del csv
+        schema = StructType([ \
+            StructField("id", StringType(), True), \
+            StructField("tagid", IntegerType(), True), \
+            StructField("titolo", StringType(), True), \
+            StructField("tipologia", StringType(), True), \
+            StructField("anno", IntegerType(), True), \
+            StructField("provenienza", StringType(), True), \
+            StructField("autore", StringType(), True), \
+            StructField("timestamp", IntegerType(), True)])
 
-    #udf per estrarre il secolo
-    udfFunction_GetCentury = udf(Utilities.centuryFromYear)
+        #legge tutti i file nella directory
+        df = spark.read.schema(schema).option("delimiter", ";").csv(fileDirectory)
+        df.printSchema()
 
-    #modifica del dataframe (inserita la data, il secolo e sistemato il campo autore)
-    new = df.withColumn("data_creazione", to_timestamp(from_unixtime("timestamp")))\
-            .withColumn("autore", initcap("autore"))\
-            .withColumn("secolo", udfFunction_GetCentury(df.anno))
-    new.show()
-    new.printSchema()
+        #udf per estrarre il secolo
+        udfFunction_GetCentury = udf(Utilities.centuryFromYear)
+
+        #modifica del dataframe (inserita la data, il secolo e sistemato il campo autore)
+        new = df.withColumn("data_creazione", to_timestamp(from_unixtime("timestamp")))\
+                .withColumn("autore", initcap("autore"))\
+                .withColumn("secolo", udfFunction_GetCentury(df.anno))
+        new.show()
+        new.printSchema()
 
 
-    #salvataggio del DataFrame (solo se contiene informazioni)
-    os.makedirs(destinationDirectory, exist_ok=True)
-    if (new.count()>0):
-        new.drop("timestamp").write.mode("append").option("header", "true").option("delimiter",";").csv(destinationDirectory)
+        #salvataggio del DataFrame (solo se contiene informazioni)
+        os.makedirs(destinationDirectory, exist_ok=True)
+        if (new.count()>0):
+            new.drop("timestamp").write.mode("append").option("header", "true").option("delimiter",";").csv(destinationDirectory)
 
-    #i file letti vengono spostati nella cartella processed
-    os.makedirs(moveDirectory, exist_ok=True)
-    data = df.withColumn("input_file", input_file_name())
-    lista = data.select("input_file").rdd.flatMap(lambda x: x).collect()
-    for a in list(set(lista)):
-        fname = a.split("/")[-1]
-        shutil.move(fileDirectory + fname, moveDirectory + fname)
+        #i file letti vengono spostati nella cartella processed
+        Utilities.move_input_file(moveDirectory, fileDirectory, df)
+
+    else:
+        print("non ci sono opere nella Raw Zone")
 
 """
 vengono lette tutti i file contenenti la descrizione di un'opera.
@@ -78,41 +79,47 @@ def opere_descrizioni(spark, sc):
     moveDirectory = 'raw/opere/descrizioni/processed/'
     destinationDirectory = 'standardized/opere/descrizioni/'
 
-    #schema del csv
-    schema = StructType([ \
-        StructField("input_file", StringType(), True),
-        StructField("descrizione", StringType(), True)])
+    if (Utilities.check_csv_files(fileDirectory)):
 
-    #legge tutti i file nella directory
-    rdd = sc.wholeTextFiles(fileDirectory)
-    df = spark.createDataFrame(rdd, schema)
-    df.show()
+        #schema del csv
+        schema = StructType([ \
+            StructField("input_file", StringType(), True),
+            StructField("descrizione", StringType(), True)])
 
-
-    udfGetID= udf(Utilities.getIDFromFile)
-    udfModificationDate = udf(Utilities.modificationDate)
-    udfGetTitolo = udf(Utilities.getTitoloFromFile)
-    udfFilePath = udf(Utilities.filePath)
-    df = df.withColumn("id_opera", udfGetID(func.substring_index(func.col("input_file"),"/",-1)))\
-        .withColumn("titolo_opera", initcap(udfGetTitolo(func.substring_index(func.col("input_file"),"/",-1)))) \
-        .withColumn("input_file", udfFilePath(func.col("input_file")))
-
-    df = df.withColumn("data_creazione", to_timestamp(from_unixtime(udfModificationDate(func.col("input_file")))))
-    df.printSchema()
-    df.show()
+        #legge tutti i file nella directory
+        rdd = sc.wholeTextFiles(fileDirectory)
+        df = spark.createDataFrame(rdd, schema)
+        df.show()
 
 
+        udfGetID= udf(Utilities.getIDFromFile)
+        udfModificationDate = udf(Utilities.modificationDate)
+        udfGetTitolo = udf(Utilities.getTitoloFromFile)
+        udfFilePath = udf(Utilities.filePath)
+        df = df.withColumn("id_opera", udfGetID(func.substring_index(func.col("input_file"),"/",-1)))\
+            .withColumn("titolo_opera", initcap(udfGetTitolo(func.substring_index(func.col("input_file"),"/",-1)))) \
+            .withColumn("input_file", udfFilePath(func.col("input_file")))
 
-    # salvataggio del DataFrame (solo se contiene informazioni)
-    os.makedirs(destinationDirectory, exist_ok=True)
-    if (df.count() > 0):
-        df.select("descrizione","id_opera","titolo_opera","data_creazione").write.mode("append").option("header", "true").option("delimiter", ";").csv(destinationDirectory)
+        df = df.withColumn("data_creazione", to_timestamp(from_unixtime(udfModificationDate(func.col("input_file")))))
+        df.printSchema()
+        df.show()
 
-    os.makedirs(moveDirectory, exist_ok=True)
-    lista = df.select("input_file").rdd.flatMap(lambda x: x).collect()
-    for a in list(set(lista)):
-        fname = a.split("/")[-1]
-        #shutil.move(fileDirectory + fname, moveDirectory + fname)
+
+
+        # salvataggio del DataFrame (solo se contiene informazioni)
+        os.makedirs(destinationDirectory, exist_ok=True)
+        if (df.count() > 0):
+            df.select("descrizione","id_opera","titolo_opera","data_creazione").write.mode("append").option("header", "true").option("delimiter", ";").csv(destinationDirectory)
+
+        Utilities.move_input_file_from_df(moveDirectory, fileDirectory, df)
+
+        """os.makedirs(moveDirectory, exist_ok=True)
+        lista = df.select("input_file").rdd.flatMap(lambda x: x).collect()
+        for a in list(set(lista)):
+            fname = a.split("/")[-1]
+            #shutil.move(fileDirectory + fname, moveDirectory + fname)"""
+    else:
+        print("Non ci sono descrizioni nella Raw Zone")
 
 """
 vengono lette tutti i file contenenti gli autori (ID, Nome, Anno).
@@ -123,39 +130,42 @@ def opere_autori(spark, sc):
     moveDirectory = 'raw/opere/autori/processed/'
     destinationDirectory = 'standardized/opere/autori/'
 
-    # schema del csv
-    schema = StructType([ \
-        StructField("id", StringType(), True), \
-        StructField("nome", StringType(), True), \
-        StructField("anno", IntegerType(), True)])
+    if (Utilities.check_csv_files(fileDirectory)):
+        # schema del csv
+        schema = StructType([ \
+            StructField("id", StringType(), True), \
+            StructField("nome", StringType(), True), \
+            StructField("anno", IntegerType(), True)])
 
-    # legge tutti i file nella directory
-    df = spark.read.schema(schema).option("delimiter", ";").csv(fileDirectory)
-    df.printSchema()
+        # legge tutti i file nella directory
+        df = spark.read.schema(schema).option("delimiter", ";").csv(fileDirectory)
+        df.printSchema()
 
-    udfModificationDate = udf(Utilities.modificationDate)
-    udfFilePath = udf(Utilities.filePath)
-    # modifica del dataframe (inserita la data, il secolo e sistemato il campo autore)
-    new = df.withColumn("nome", initcap("nome"))\
-            .withColumn("input_file",udfFilePath(input_file_name()))
-    new = new.withColumn("data_creazione", to_timestamp(from_unixtime(udfModificationDate(func.col("input_file")))))
+        udfModificationDate = udf(Utilities.modificationDate)
+        udfFilePath = udf(Utilities.filePath)
+        # modifica del dataframe (inserita la data, il secolo e sistemato il campo autore)
+        new = df.withColumn("nome", initcap("nome"))\
+                .withColumn("input_file",udfFilePath(input_file_name()))
+        new = new.withColumn("data_creazione", to_timestamp(from_unixtime(udfModificationDate(func.col("input_file")))))
 
-    new.show()
-    new.printSchema()
+        new.show()
+        new.printSchema()
 
-    # salvataggio del DataFrame (solo se contiene informazioni)
-    os.makedirs(destinationDirectory, exist_ok=True)
-    if (new.count() > 0):
-        new.drop("input_file").write.mode("append").option("header", "true").option("delimiter", ";").csv(destinationDirectory)
+        # salvataggio del DataFrame (solo se contiene informazioni)
+        os.makedirs(destinationDirectory, exist_ok=True)
+        if (new.count() > 0):
+            new.drop("input_file").write.mode("append").option("header", "true").option("delimiter", ";").csv(destinationDirectory)
 
-    # i file letti vengono spostati nella cartella processed
-    os.makedirs(moveDirectory, exist_ok=True)
-    data = df.withColumn("input_file", input_file_name())
-    lista = data.select("input_file").rdd.flatMap(lambda x: x).collect()
-    for a in list(set(lista)):
-        fname = a.split("/")[-1]
-        shutil.move(fileDirectory + fname, moveDirectory + fname)
-
+        # i file letti vengono spostati nella cartella processed
+        Utilities.move_input_file(moveDirectory, fileDirectory, df)
+        """os.makedirs(moveDirectory, exist_ok=True)
+        data = df.withColumn("input_file", input_file_name())
+        lista = data.select("input_file").rdd.flatMap(lambda x: x).collect()
+        for a in list(set(lista)):
+            fname = a.split("/")[-1]
+            shutil.move(fileDirectory + fname, moveDirectory + fname)"""
+    else:
+        print("Non ci sono autori nella Raw Zone")
 
 def opere_immagini(spark, sc):
 
@@ -163,165 +173,179 @@ def opere_immagini(spark, sc):
     moveDirectory = 'raw/opere/immagini/processed/'
     destinationDirectory = 'standardized/opere/immagini/'
 
-    udfModificationDate = udf(Utilities.modificationDate)
-    udfFilePath = udf(Utilities.filePath)
-    udfGetID = udf(Utilities.getIDFromFile)
-    udfGetTitolo = udf(Utilities.getTitoloFromFile)
+    if (Utilities.check_csv_files(fileDirectory)):
 
-    schema = StructType([ \
-        StructField("input_file", StringType(), True),
-        StructField("immagine", StringType(), True)])
+        udfModificationDate = udf(Utilities.modificationDate)
+        udfFilePath = udf(Utilities.filePath)
+        udfGetID = udf(Utilities.getIDFromFile)
+        udfGetTitolo = udf(Utilities.getTitoloFromFile)
 
-    # legge tutti i file nella directory
-    rdd = sc.wholeTextFiles(fileDirectory)
-    df1 = spark.createDataFrame(rdd, schema)
-    df = df1.withColumn("input_file", udfFilePath(func.col("input_file")))
-    df.show()
-    print("Numero di immagini trovate: " + str(df.count()))
+        schema = StructType([ \
+            StructField("input_file", StringType(), True),
+            StructField("immagine", StringType(), True)])
 
-
-
-
-    df = df.withColumn("id_opera", udfGetID(func.substring_index(func.col("input_file"), "/", -1))) \
-        .withColumn("titolo_opera", initcap(udfGetTitolo(func.substring_index(func.col("input_file"), "/", -1)))) \
-
-    df = df.withColumn("data_creazione", to_timestamp(from_unixtime(udfModificationDate(func.col("input_file")))))
+        # legge tutti i file nella directory
+        rdd = sc.wholeTextFiles(fileDirectory)
+        df1 = spark.createDataFrame(rdd, schema)
+        df = df1.withColumn("input_file", udfFilePath(func.col("input_file")))
+        df.show()
+        print("Numero di immagini trovate: " + str(df.count()))
 
 
-    df.show(20)
-    df.printSchema()
+        df = df.withColumn("id_opera", udfGetID(func.substring_index(func.col("input_file"), "/", -1))) \
+            .withColumn("titolo_opera", initcap(udfGetTitolo(func.substring_index(func.col("input_file"), "/", -1)))) \
 
-    # salvataggio del DataFrame (solo se contiene informazioni)
-    os.makedirs(destinationDirectory, exist_ok=True)
-    if (df.count() > 0):
-        df.select("input_file","id_opera","titolo_opera","data_creazione").write.mode("append").option("header", "true").option("delimiter", ";").csv(destinationDirectory)
+        df = df.withColumn("data_creazione", to_timestamp(from_unixtime(udfModificationDate(func.col("input_file")))))
 
-    Utilities.move_input_file_from_df(moveDirectory, fileDirectory, df)
+
+        df.show(20)
+        df.printSchema()
+
+        # salvataggio del DataFrame (solo se contiene informazioni)
+        os.makedirs(destinationDirectory, exist_ok=True)
+        if (df.count() > 0):
+            df.select("input_file","id_opera","titolo_opera","data_creazione").write.mode("append").option("header", "true").option("delimiter", ";").csv(destinationDirectory)
+
+        Utilities.move_input_file_from_df(moveDirectory, fileDirectory, df)
+    else:
+        print("Non ci sono immagini nella Raw one")
 
 def visitatori_categorie(spark, sc):
     fileDirectory = 'raw/visitatori/categorie/'
     moveDirectory = 'raw/visitatori/categorie/processed/'
     destinationDirectory = 'standardized/visitatori/categorie/'
 
-    # schema del csv
-    schema = StructType([ \
-        StructField("id", StringType(), True), \
-        StructField("nome", StringType(), True), \
-        StructField("fascia_eta", StringType(), True)])
+    if (Utilities.check_csv_files(fileDirectory)):
+        # schema del csv
+        schema = StructType([ \
+            StructField("id", StringType(), True), \
+            StructField("nome", StringType(), True), \
+            StructField("fascia_eta", StringType(), True)])
 
-    # legge tutti i file nella directory
-    df = spark.read.schema(schema).option("delimiter", ";").csv(fileDirectory)
-    df.printSchema()
-    df.show()
+        # legge tutti i file nella directory
+        df = spark.read.schema(schema).option("delimiter", ";").csv(fileDirectory)
+        df.printSchema()
+        df.show()
 
-    udfModificationDate = udf(Utilities.modificationDate)
-    udfFilePath = udf(Utilities.filePath)
-    udfEtaMin = udf(Utilities.getEtaMin)
-    udfEtaMax = udf(Utilities.getEtaMax)
+        udfModificationDate = udf(Utilities.modificationDate)
+        udfFilePath = udf(Utilities.filePath)
+        udfEtaMin = udf(Utilities.getEtaMin)
+        udfEtaMax = udf(Utilities.getEtaMax)
 
-    # modifica del dataframe (inserita la data, il secolo e sistemato il campo autore)
-    new = df.withColumn("nome", initcap("nome"))\
-            .withColumn("input_file",udfFilePath(input_file_name()))\
-            .withColumn("eta_min", udfEtaMin(func.col("fascia_eta"))) \
-            .withColumn("eta_max", udfEtaMax(func.col("fascia_eta")))
-    new = new.withColumn("data_creazione", to_timestamp(from_unixtime(udfModificationDate(func.col("input_file")))))
+        # modifica del dataframe (inserita la data, il secolo e sistemato il campo autore)
+        new = df.withColumn("nome", initcap("nome"))\
+                .withColumn("input_file",udfFilePath(input_file_name()))\
+                .withColumn("eta_min", udfEtaMin(func.col("fascia_eta"))) \
+                .withColumn("eta_max", udfEtaMax(func.col("fascia_eta")))
+        new = new.withColumn("data_creazione", to_timestamp(from_unixtime(udfModificationDate(func.col("input_file")))))
 
-    new.show()
-    new.printSchema()
+        new.show()
+        new.printSchema()
 
-    # salvataggio del DataFrame (solo se contiene informazioni)
-    os.makedirs(destinationDirectory, exist_ok=True)
-    if (new.count() > 0):
-        new.drop("input_file","fascia_eta").write.mode("append").option("header", "true").option("delimiter", ";").csv(destinationDirectory)
+        # salvataggio del DataFrame (solo se contiene informazioni)
+        os.makedirs(destinationDirectory, exist_ok=True)
+        if (new.count() > 0):
+            new.drop("input_file","fascia_eta").write.mode("append").option("header", "true").option("delimiter", ";").csv(destinationDirectory)
 
-    # i file letti vengono spostati nella cartella processed
-    os.makedirs(moveDirectory, exist_ok=True)
-    data = df.withColumn("input_file", input_file_name())
-    lista = data.select("input_file").rdd.flatMap(lambda x: x).collect()
-    for a in list(set(lista)):
-        fname = a.split("/")[-1]
-        shutil.move(fileDirectory + fname, moveDirectory + fname)
+        # i file letti vengono spostati nella cartella processed
+        Utilities.move_input_file(moveDirectory, fileDirectory, df)
+        """os.makedirs(moveDirectory, exist_ok=True)
+        data = df.withColumn("input_file", input_file_name())
+        lista = data.select("input_file").rdd.flatMap(lambda x: x).collect()
+        for a in list(set(lista)):
+            fname = a.split("/")[-1]
+            shutil.move(fileDirectory + fname, moveDirectory + fname)"""
+    else:
+        print("Non ci sono categorie nella Raw Zone")
 
 def visitatori_elenco(spark, sc):
     fileDirectory = 'raw/visitatori/elenco/'
     moveDirectory = 'raw/visitatori/elenco/processed/'
     destinationDirectory = 'standardized/visitatori/elenco/'
 
-    # schema del csv
-    schema = StructType([ \
-        StructField("id", StringType(), True), \
-        StructField("nome", StringType(), True), \
-        StructField("cognome", StringType(), True),\
-        StructField("sesso", StringType(), True),\
-        StructField("eta", IntegerType(), True)])
+    if (Utilities.check_csv_files(fileDirectory)):
+        # schema del csv
+        schema = StructType([ \
+            StructField("id", StringType(), True), \
+            StructField("nome", StringType(), True), \
+            StructField("cognome", StringType(), True),\
+            StructField("sesso", StringType(), True),\
+            StructField("eta", IntegerType(), True)])
 
-    # legge tutti i file nella directory
-    df = spark.read.schema(schema).option("delimiter", ";").csv(fileDirectory)
-    df.printSchema()
+        # legge tutti i file nella directory
+        df = spark.read.schema(schema).option("delimiter", ";").csv(fileDirectory)
+        df.printSchema()
 
-    udfModificationDate = udf(Utilities.modificationDate)
-    udfFilePath = udf(Utilities.filePath)
-    # modifica del dataframe (inserita la data, il secolo e sistemato il campo autore)
-    new = df.withColumn("nome", initcap("nome")) \
-            .withColumn("cognome", initcap("cognome")) \
-            .withColumn("sesso", upper("sesso")) \
-            .withColumn("input_file",udfFilePath(input_file_name()))
-    new = new.withColumn("data_creazione", to_timestamp(from_unixtime(udfModificationDate(func.col("input_file")))))
+        udfModificationDate = udf(Utilities.modificationDate)
+        udfFilePath = udf(Utilities.filePath)
+        # modifica del dataframe (inserita la data, il secolo e sistemato il campo autore)
+        new = df.withColumn("nome", initcap("nome")) \
+                .withColumn("cognome", initcap("cognome")) \
+                .withColumn("sesso", upper("sesso")) \
+                .withColumn("input_file",udfFilePath(input_file_name()))
+        new = new.withColumn("data_creazione", to_timestamp(from_unixtime(udfModificationDate(func.col("input_file")))))
 
-    new.show()
-    new.printSchema()
+        new.show()
+        new.printSchema()
 
-    # salvataggio del DataFrame (solo se contiene informazioni)
-    os.makedirs(destinationDirectory, exist_ok=True)
-    if (new.count() > 0):
-        new.drop("input_file").write.mode("append").option("header", "true").option("delimiter", ";").csv(destinationDirectory)
+        # salvataggio del DataFrame (solo se contiene informazioni)
+        os.makedirs(destinationDirectory, exist_ok=True)
+        if (new.count() > 0):
+            new.drop("input_file").write.mode("append").option("header", "true").option("delimiter", ";").csv(destinationDirectory)
 
-    # i file letti vengono spostati nella cartella processed
-    os.makedirs(moveDirectory, exist_ok=True)
-    data = df.withColumn("input_file", input_file_name())
-    lista = data.select("input_file").rdd.flatMap(lambda x: x).collect()
-    for a in list(set(lista)):
-        fname = a.split("/")[-1]
-        shutil.move(fileDirectory + fname, moveDirectory + fname)
+        # i file letti vengono spostati nella cartella processed
+        Utilities.move_input_file(moveDirectory, fileDirectory, df)
+        """os.makedirs(moveDirectory, exist_ok=True)
+        data = df.withColumn("input_file", input_file_name())
+        lista = data.select("input_file").rdd.flatMap(lambda x: x).collect()
+        for a in list(set(lista)):
+            fname = a.split("/")[-1]
+            shutil.move(fileDirectory + fname, moveDirectory + fname)"""
+    else:
+        print("Non ci sono visitatori nella Raw Zone")
 
 def visitatori_visite(spark, sc):
     fileDirectory = 'raw/visitatori/visite/'
     moveDirectory = 'raw/visitatori/visite/processed/'
     destinationDirectory = 'standardized/visitatori/visite/'
 
-    # schema del csv
-    schema = StructType([ \
-        StructField("id", StringType(), True), \
-        StructField("visitatore_id", StringType(), True), \
-        StructField("opera_id", StringType(), True), \
-        StructField("durata", StringType(), True), \
-        StructField("timestamp", IntegerType(), True)])
+    if (Utilities.check_csv_files(fileDirectory)):
+        # schema del csv
+        schema = StructType([ \
+            StructField("id", StringType(), True), \
+            StructField("visitatore_id", StringType(), True), \
+            StructField("opera_id", StringType(), True), \
+            StructField("durata", StringType(), True), \
+            StructField("timestamp", IntegerType(), True)])
 
-    # legge tutti i file nella directory
-    df = spark.read.schema(schema).option("delimiter", ";").csv(fileDirectory)
-    df.printSchema()
+        # legge tutti i file nella directory
+        df = spark.read.schema(schema).option("delimiter", ";").csv(fileDirectory)
+        df.printSchema()
 
-    udfModificationDate = udf(Utilities.modificationDate)
-    udfFilePath = udf(Utilities.filePath)
-    # modifica del dataframe (inserita la data, il secolo e sistemato il campo autore)
-    new = df.withColumn("data_creazione", to_timestamp(from_unixtime("timestamp")))\
-            .withColumn("input_file",udfFilePath(input_file_name()))
+        udfModificationDate = udf(Utilities.modificationDate)
+        udfFilePath = udf(Utilities.filePath)
+        # modifica del dataframe (inserita la data, il secolo e sistemato il campo autore)
+        new = df.withColumn("data_creazione", to_timestamp(from_unixtime("timestamp")))\
+                .withColumn("input_file",udfFilePath(input_file_name()))
 
-    new.show()
-    new.printSchema()
+        new.show()
+        new.printSchema()
 
-    # salvataggio del DataFrame (solo se contiene informazioni)
-    os.makedirs(destinationDirectory, exist_ok=True)
-    if (new.count() > 0):
-        new.drop("input_file","timestamp").write.mode("append").option("header", "true").option("delimiter", ";").csv(destinationDirectory)
+        # salvataggio del DataFrame (solo se contiene informazioni)
+        os.makedirs(destinationDirectory, exist_ok=True)
+        if (new.count() > 0):
+            new.drop("input_file","timestamp").write.mode("append").option("header", "true").option("delimiter", ";").csv(destinationDirectory)
 
-    # i file letti vengono spostati nella cartella processed
-    os.makedirs(moveDirectory, exist_ok=True)
-    data = df.withColumn("input_file", input_file_name())
-    lista = data.select("input_file").rdd.flatMap(lambda x: x).collect()
-    for a in list(set(lista)):
-        fname = a.split("/")[-1]
-        shutil.move(fileDirectory + fname, moveDirectory + fname)
+        # i file letti vengono spostati nella cartella processed
+        Utilities.move_input_file(moveDirectory, fileDirectory, df)
+        """os.makedirs(moveDirectory, exist_ok=True)
+        data = df.withColumn("input_file", input_file_name())
+        lista = data.select("input_file").rdd.flatMap(lambda x: x).collect()
+        for a in list(set(lista)):
+            fname = a.split("/")[-1]
+            shutil.move(fileDirectory + fname, moveDirectory + fname)"""
+    else:
+        print("Non ci sono visite nella Raw Zone")
 
 def main():
     print("Da Raw Zone a Standardized Zone")
@@ -338,8 +362,38 @@ def main():
         enableHiveSupport(). \
         getOrCreate()
 
+    valore = input("Standardized -> Curated\n"
+                   "Seleziona un'opzione:\n"
+                   ""
+                   "1) Opere\n"
+                   "2) Descrizioni\n"
+                   "3) Autori\n"
+                   "4) Immagini\n"
+                   "5) Categorie\n"
+                   "6) Visitatori\n"
+                   "7) Visite\n"
+                   "0) Tutti\n")
+
+    if (valore == '1'):
+        opere_lista(spark)
+    elif (valore == '2'):
+        opere_descrizioni(spark, sc)
+    elif (valore == '3'):
+        opere_autori(spark, sc)
+    elif (valore == '4'):
+        opere_immagini(spark, sc)
+    elif (valore == "5"):
+        visitatori_categorie(spark, sc)
+    elif (valore == '6'):
+        visitatori_elenco(spark, sc)
+    elif (valore == '7'):
+        visitatori_visite(spark, sc)
+    elif (valore == '0'):
+        print()
+        # TODO implementare tutti
+
     #opere_lista(spark)
-    opere_descrizioni(spark, sc)
+    #opere_descrizioni(spark, sc)
     #opere_autori(spark, sc)
     #opere_immagini(spark, sc)
     #visitatori_categorie(spark, sc)

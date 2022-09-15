@@ -182,10 +182,27 @@ def main():
         enableHiveSupport(). \
         getOrCreate()
 
+    valore = input("Standardized -> Curated\n"
+                   "Seleziona un'opzione:\n"
+                   ""
+                   "1) Categoria e visitatore\n"
+                   "2) Opera, autore, descirzione e immagini\n"
+                   "3) Visite, visitatore e opera\n"
+                   "4) Tutti\n")
+
+    if (valore == '1'):
+        categorie_visitatori(spark)
+    elif (valore == '2'):
+        opera(spark)
+    elif (valore == '3'):
+        visita(spark)
+    elif (valore == '4'):
+        print("tutti")
+        #TODO implementare tutti
+
     #categorie_visitatori(spark)
     #opera(spark)
     visita(spark)
-    #TODO join di visita, visitatore e opera per creare dataframe visite completo, ogni visita ha id, controllo che ci sia tutto e nel caso null
 
 
 

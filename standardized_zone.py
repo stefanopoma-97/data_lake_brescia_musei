@@ -334,7 +334,6 @@ def main():
         enableHiveSupport(). \
         getOrCreate()
 
-    #opere_lista(spark)
 
 
     valore = input("Standardized -> Curated\n"
