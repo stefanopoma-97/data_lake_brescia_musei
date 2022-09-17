@@ -18,7 +18,16 @@ import sys
 import Utilities
 
 
+"""
+Restituisce un DataFrame contenente tutti i visitatori estratti dalla curated
+Viene anche aggiunta una colonna contenente le categorie associata al visitatore (Array di ID)
+"""
 
+
+#TODO si potrebbe prendere solo i visitatori nuovi
+#TODO poi separatamente vedere se c'è una categoria nuova e fare il join con tutti i visitatori
+#TODO il passaggio da standardized a curate potrebbe inserire una colonna "processato" = False
+#TODO il passaggio da curated ad application potrebbe impostare il valore a True a tutte le informazioni salvate sul grafo
 def get_visitatori(spark):
     print("GET visitatori e array categorie")
     directoryCategorie = 'curated/visitatori/categorie/'
@@ -31,11 +40,12 @@ def get_visitatori(spark):
         lista_visitatori = spark.read.option("header", "true").option("inferSchema", "true").option("delimiter",
                                                                                                    ";").csv(
             directoryVisitatori)
+        print("Categorie:")
         lista_categorie.show()
+        print("Visitatori:")
         lista_visitatori.show()
 
-        #TODO si potrebbe prendere solo i visitatori nuovi
-        #TODO poi separatamente vedere se c'è una categoria nuova e fare il join con tutti i visitatori
+
         join = lista_visitatori.alias("visitatori") \
             .join(lista_categorie.alias("categorie"), \
                   (func.col("visitatori.eta") >= func.col("categorie.eta_min")) & (func.col("visitatori.eta") <= func.col("categorie.eta_max")), \
@@ -55,6 +65,10 @@ def get_visitatori(spark):
     else:
         print("Attenzione, mancano i visitaotori e/o le categorie")
 
+"""
+Restituisce un dataframe contenente tutte le opere
+alle opere è associato l'id dell'autore, la descrizione, l'elenco delle immagini (Array di ID)
+"""
 def get_opere(spark):
     print("GET opere")
     directoryOpere = 'curated/opere/lista/'
@@ -97,8 +111,8 @@ def get_opere(spark):
                   ) \
             .select(func.col("opere.id").alias("id"), func.col("autori.id").alias("autore_id"))
 
-        print("join autori")
-        join_autori.show()
+        #print("join autori")
+        #join_autori.show()
 
         #TODO si potrebbe fare solo con opere nuove (o senza descrizione)
         join_descrizione = opere.alias("opere") \
@@ -108,8 +122,8 @@ def get_opere(spark):
                   )\
             .select(func.col("opere.id").alias("id"), func.col("descrizioni.descrizione").alias("descrizione"))
 
-        print("join descrizione")
-        join_descrizione.show()
+        #print("join descrizione")
+        #join_descrizione.show()
 
         #TODO solo opere nuove o senza descrizione
         join_immagini = opere.alias("opere") \
@@ -120,8 +134,8 @@ def get_opere(spark):
             .select(func.col("opere.id").alias("id"), func.col("immagini.input_file").alias("file"))\
             .groupBy("id").agg(func.collect_list("file").alias("file"))
 
-        print("join immagini")
-        join_immagini.show()
+        #print("join immagini")
+        #join_immagini.show()
 
 
         join = opere.alias("opere") \
@@ -142,14 +156,17 @@ def get_opere(spark):
                     func.col("immagini.file").alias("immagini"),
                     func.col("autori.autore_id").alias("autore_id")
                     )
-
+        print("Dataframe:")
         join.show()
         return join
 
     else:
         print("Attenzione, non ci sono opere")
 
-
+"""
+Restituisce un datframe contenente le visite, a cui viene anche aggiunta una colonna per l'id del visitatore e l'id dell'opera.
+Se gli id non esistono viene inserito null
+"""
 def get_visite(spark):
     print("GET visite")
     directoryOpere = 'curated/opere/lista/'
@@ -168,9 +185,11 @@ def get_visite(spark):
                                                                                                           ";").csv(
             directoryVisite)
 
-
+        print("Opere:")
         opere.show()
+        print("Visitatori:")
         visitatori.show()
+        print("Visite:")
         visite.show()
 
         #TODO si potrebbe partire solo dalle visite nuove
@@ -187,7 +206,10 @@ def get_visite(spark):
                   ) \
             .select(func.col("visite.*"), func.col("visitatori.id").alias("visitatore"))
 
-        return join.where(join.visitatore.isNotNull() & join.opera.isNotNull())
+        join = join.where(join.visitatore.isNotNull() & join.opera.isNotNull())
+        print("Dataframe")
+        join.show()
+        return join
 
 
         #TODO le visite escluse potrebbero non essere considerate come fatte
@@ -195,6 +217,9 @@ def get_visite(spark):
     else:
         print("Attenzione, non ci sono opere")
 
+"""
+Restituisce un dataframe contenente le categorie
+"""
 def get_categorie(spark):
     print("GET Categorie")
     directoryCategorie = 'curated/visitatori/categorie/'
@@ -213,6 +238,9 @@ def get_categorie(spark):
     else:
         print("Attenzione, non ci sono nuove categorie")
 
+"""
+Restituisce un dataframe contente le immagini
+"""
 def get_immagini(spark):
     print("GET Immagini")
     directoryCategorie = 'curated/opere/immagini/'
@@ -231,6 +259,9 @@ def get_immagini(spark):
     else:
         print("Attenzione, non ci sono nuove categorie")
 
+"""
+Restituisce un dataframe contenente le immagini
+"""
 def get_autori(spark):
     print("GET Autori")
     directoryAutori = 'curated/opere/autori/'
@@ -249,15 +280,24 @@ def get_autori(spark):
     else:
         print("Attenzione, non ci sono nuovi autori")
 
+"""
+Cancella tutti i nodi e le relazioni nel grafo
+"""
 def drop_graph():
     graph = Graph("bolt://localhost:7687", auth=("neo4j", "neo4j_cms_brescia"))
     graph.delete_all()
+    print("Elementi del grafo eliminati")
 
+"""
+Analizza tutti i file contenente nella curated zone per creare nodi e relazioni in un db Neo4j
+Il grafo viene inizialmente eliminato e poi riscritto
+"""
+#TODO integrando i controlli sui dati già processati si può evitare di fare un drop del grafo
 def write_neo4j(spark):
-    print("Scrittura su DB")
+    print("Scrittura su DB di tutti i nodi e relazioni nella Curated Zone")
 
     graph = Graph("bolt://localhost:7687", auth=("neo4j", "neo4j_cms_brescia"))
-    graph.delete_all()
+    #graph.delete_all()
 
     #Creo nodi delle categorie
     categorie = get_categorie(spark)
@@ -368,7 +408,7 @@ def write_neo4j(spark):
     #creo visite
     visite = get_visite(spark)
     print("Visite prese")
-    visite.show()
+    #visite.show()
     visite.drop("opera", "visitatore").write \
         .mode("overwrite") \
         .format("org.neo4j.spark.DataSource") \
@@ -377,7 +417,7 @@ def write_neo4j(spark):
         .option("node.keys", "id") \
         .save()
     visita_r = visite.select("id","visitatore_id","opera_id")
-    visita_r.show()
+    #visita_r.show()
     visita_r.write \
         .mode("overwrite") \
         .format("org.neo4j.spark.DataSource") \
@@ -445,12 +485,6 @@ def main():
         write_neo4j(spark)
     elif (valore == '5'):
         drop_graph()
-
-    #categorie_visitatori(spark)
-    #opera(spark)
-    #visita(spark)
-
-
 
 
 

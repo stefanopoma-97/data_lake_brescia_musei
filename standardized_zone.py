@@ -321,6 +321,7 @@ Vengono mantenute le opere inserite in una data più recente in caso di duplicat
 
 Si considerano duplicati due opere con lo stesso ID
 """
+#TODO nella standardized dovrebbero essere condierate solo opere con gli attributi fondamentali non null
 def opere(spark):
     print("inizio a spostare le opere da Standardized a Curated")
     fileDirectory = 'standardized/opere/lista/'
