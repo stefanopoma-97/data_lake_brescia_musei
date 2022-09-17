@@ -70,7 +70,16 @@ def check_jpeg_files(directory):
     files = os.listdir(directory)
     for fname in files:
         if (os.path.isfile(directory + fname)):
-            if (fname.split(".")[-1] == "jpeg") or (fname.split(".")[-1] == "png") or (fname.split(".")[-1] == "jpg"):
+            if ((fname.split(".")[-1] == "jpeg") or (fname.split(".")[-1] == "png") or (fname.split(".")[-1] == "jpg")):
+                file=True
+    return file
+
+def check_txt_files(directory):
+    file = False
+    files = os.listdir(directory)
+    for fname in files:
+        if (os.path.isfile(directory + fname)):
+            if (fname.split(".")[-1] == "txt"):
                 file=True
     return file
 

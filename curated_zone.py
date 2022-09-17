@@ -443,13 +443,6 @@ def main():
     elif (valore == '4'):
         print("tutti")
         write_neo4j(spark)
-        #get_categorie(spark)
-        #get_visitatori(spark)
-        #get_immagini(spark)
-        #get_autori(spark)
-        #get_opere(spark)
-        #get_visite(spark)
-        #TODO implementare tutti
     elif (valore == '5'):
         drop_graph()
 

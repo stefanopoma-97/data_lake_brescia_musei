@@ -222,7 +222,7 @@ def descrizioni(spark):
     if (Utilities.check_csv_files(fileDirectory)):
         lista_categorie = spark.read.option("header", "true").option("multiline",True).option("inferSchema", "true").option("delimiter", ";").csv(
             fileDirectory)
-        lista_categorie_no_duplicates = Utilities.drop_duplicates_row(lista_categorie, "data_creazione",["id_opera", "descrizione"])
+        lista_categorie_no_duplicates = Utilities.drop_duplicates_row(lista_categorie, "data_creazione",["id_opera"])
         print("Descrizioni trovate nella standardized (no dupplicati)")
         lista_categorie_no_duplicates.show()
 
@@ -230,10 +230,10 @@ def descrizioni(spark):
         if (Utilities.check_csv_files(destinationDirectory)):
             lista_categorie_salvate=spark.read.option("header", "true").option("multiline",True).option("inferSchema", "true").option("delimiter", ";").csv(
             destinationDirectory)
-            print("Autori trovati nella curated")
+            print("Descrizioni trovate nella curated")
             lista_categorie_salvate.show()
             union = lista_categorie_no_duplicates.union(lista_categorie_salvate)
-            union = Utilities.drop_duplicates_row(union, "data_creazione",["descrizione", "id_opera"])
+            union = Utilities.drop_duplicates_row(union, "data_creazione",["id_opera"])
             print("Dataframe uniti")
             union.show()
             union.write.mode("append").option("header", "true").option("delimiter", ";").csv(

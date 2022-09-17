@@ -21,9 +21,11 @@ Vengono lette tutte le opere (da file.csv) nella cartella raw/opere/lista/
 Struttura: 1;34455;Titolo 1;Tipologia 1;1900;Provenienza;autore1 cognome;1663053975
 Viene aggiunto il secolo, gli autori sono messi con la prima lettera maiuscola, viene derivata la data dal timestamp
 Viene inserito l'header e il nuovo dataframe viene salvato nella standardized zone.
+Viene inoltre ricavata la data di creazione dal timestamp
 
 I file processati vengono inseriti nella sotto-cartella processed, in modo che non vengano analizzati due volte
 """
+#TODO possibile gestire la data di creazione anche in assenza del timestamp o se il timestamp da dei risultati non realistici
 def opere_lista(spark):
     print("inizio a spostare le opere da Raw a Standardized")
     fileDirectory = 'raw/opere/lista/'
@@ -45,7 +47,7 @@ def opere_lista(spark):
 
         #legge tutti i file nella directory
         df = spark.read.schema(schema).option("delimiter", ";").csv(fileDirectory)
-        df.printSchema()
+        #df.printSchema()
 
         #udf per estrarre il secolo
         udfFunction_GetCentury = udf(Utilities.centuryFromYear)
@@ -54,8 +56,9 @@ def opere_lista(spark):
         new = df.withColumn("data_creazione", to_timestamp(from_unixtime("timestamp")))\
                 .withColumn("autore", initcap("autore"))\
                 .withColumn("secolo", udfFunction_GetCentury(df.anno))
+        print("Opere lette")
         new.show()
-        new.printSchema()
+        #new.printSchema()
 
 
         #salvataggio del DataFrame (solo se contiene informazioni)
@@ -67,19 +70,27 @@ def opere_lista(spark):
         Utilities.move_input_file(moveDirectory, fileDirectory, df)
 
     else:
-        print("non ci sono opere nella Raw Zone")
+        print("Non ci sono opere nella Raw Zone")
 
 """
-vengono lette tutti i file contenenti la descrizione di un'opera.
-Viene creato un Datafram con id_opera, titolo_opera, descrizione
+
+Vengono lette tutte le descrizioni (da file.txt) nella cartella raw/opere/descrizioni/
+Struttura: testo qualsiasi
+Il nome del file .txt deve essere del tipo "nome-ID OPERA.txt"
+
+Viene creato un dataframe contenente id_opera, titolo_opera, descrizione, data_creazione
+
+I file processati vengono inseriti nella sotto-cartella processed, in modo che non vengano analizzati due volte
 
 """
+#TODO gestire file anche con nomi del tipo ID.txt
 def opere_descrizioni(spark, sc):
+    print("inizio a spostare le descrizioni da Raw a Standardized")
     fileDirectory = 'raw/opere/descrizioni/'
     moveDirectory = 'raw/opere/descrizioni/processed/'
     destinationDirectory = 'standardized/opere/descrizioni/'
 
-    if (Utilities.check_csv_files(fileDirectory)):
+    if (Utilities.check_txt_files(fileDirectory)):
 
         #schema del csv
         schema = StructType([ \
@@ -89,7 +100,7 @@ def opere_descrizioni(spark, sc):
         #legge tutti i file nella directory
         rdd = sc.wholeTextFiles(fileDirectory)
         df = spark.createDataFrame(rdd, schema)
-        df.show()
+        #df.show()
 
 
         udfGetID= udf(Utilities.getIDFromFile)
@@ -101,7 +112,8 @@ def opere_descrizioni(spark, sc):
             .withColumn("input_file", udfFilePath(func.col("input_file")))
 
         df = df.withColumn("data_creazione", to_timestamp(from_unixtime(udfModificationDate(func.col("input_file")))))
-        df.printSchema()
+        #df.printSchema()
+        print("Descrizioni lette")
         df.show()
 
 
@@ -113,19 +125,19 @@ def opere_descrizioni(spark, sc):
 
         Utilities.move_input_file_from_df(moveDirectory, fileDirectory, df)
 
-        """os.makedirs(moveDirectory, exist_ok=True)
-        lista = df.select("input_file").rdd.flatMap(lambda x: x).collect()
-        for a in list(set(lista)):
-            fname = a.split("/")[-1]
-            #shutil.move(fileDirectory + fname, moveDirectory + fname)"""
     else:
         print("Non ci sono descrizioni nella Raw Zone")
 
 """
-vengono lette tutti i file contenenti gli autori (ID, Nome, Anno).
-Viene creato un Dataframe e salvato nella standardized zone
+Vengono lette tutti gli autori (da file.csv) nella cartella raw/opere/autori/
+Struttura: ID;Nome e cognome;Anno di nascita
+
+Il nome viene messo con le maiuscole, viene ricavata la data di creazione del file
+I file processati vengono inseriti nella sotto-cartella processed, in modo che non vengano analizzati due volte
 """
+#TODO possibilità di spezzare i campi nome e cognome
 def opere_autori(spark, sc):
+    print("inizio a spostare gli autori da Raw a Standardized")
     fileDirectory = 'raw/opere/autori/'
     moveDirectory = 'raw/opere/autori/processed/'
     destinationDirectory = 'standardized/opere/autori/'
@@ -139,7 +151,7 @@ def opere_autori(spark, sc):
 
         # legge tutti i file nella directory
         df = spark.read.schema(schema).option("delimiter", ";").csv(fileDirectory)
-        df.printSchema()
+        #df.printSchema()
 
         udfModificationDate = udf(Utilities.modificationDate)
         udfFilePath = udf(Utilities.filePath)
@@ -148,8 +160,9 @@ def opere_autori(spark, sc):
                 .withColumn("input_file",udfFilePath(input_file_name()))
         new = new.withColumn("data_creazione", to_timestamp(from_unixtime(udfModificationDate(func.col("input_file")))))
 
+        print("Autori trovati")
         new.show()
-        new.printSchema()
+        #new.printSchema()
 
         # salvataggio del DataFrame (solo se contiene informazioni)
         os.makedirs(destinationDirectory, exist_ok=True)
@@ -158,17 +171,18 @@ def opere_autori(spark, sc):
 
         # i file letti vengono spostati nella cartella processed
         Utilities.move_input_file(moveDirectory, fileDirectory, df)
-        """os.makedirs(moveDirectory, exist_ok=True)
-        data = df.withColumn("input_file", input_file_name())
-        lista = data.select("input_file").rdd.flatMap(lambda x: x).collect()
-        for a in list(set(lista)):
-            fname = a.split("/")[-1]
-            shutil.move(fileDirectory + fname, moveDirectory + fname)"""
+
     else:
         print("Non ci sono autori nella Raw Zone")
+"""
+Vengono lette tutte le immagini (da file.jpeg) nella cartella raw/opere/immagini/
+Struttura del nome file: NOME-ID OPERA.jpeg
 
+Nel DataFrame viene salvato il path, l'id dell'opera associata, il titolo e la data di creazione del file
+"""
+#TODO gestire svariati altri formati per poi convertire tutto in jpeg
 def opere_immagini(spark, sc):
-    #TODO convertine in jpeg
+    print("inizio a spostare le immagini da Raw a Standardized")
     fileDirectory = 'raw/opere/immagini/'
     moveDirectory = 'raw/opere/immagini/processed/'
     destinationDirectory = 'standardized/opere/immagini/'
@@ -189,7 +203,7 @@ def opere_immagini(spark, sc):
         rdd = sc.wholeTextFiles(fileDirectory)
         df1 = spark.createDataFrame(rdd, schema)
         df = df1.withColumn("input_file", udfFilePath(func.col("input_file")))
-        df.show()
+        #df.show()
         print("Numero di immagini trovate: " + str(df.count()))
 
 
@@ -199,12 +213,14 @@ def opere_immagini(spark, sc):
         df = df.withColumn("data_creazione", to_timestamp(from_unixtime(udfModificationDate(func.col("input_file")))))
 
         new = df.withColumn("input_file", udfFilePathInProcessed(func.col("input_file")))
-        new.select("input_file").show(2, False)
-        new.printSchema()
+        #new.select("input_file").show(2, False)
+        #new.printSchema()
+
 
         if (new.count() > 0):
             new.select("input_file","id_opera","titolo_opera","data_creazione").write.mode("append").option("header", "true").option("delimiter", ";").csv(destinationDirectory)
-
+            print("Immagini trovate")
+            new.select("input_file", "id_opera", "titolo_opera", "data_creazione").show()
         # salvataggio del DataFrame (solo se contiene informazioni)
         Utilities.move_input_file_from_df(moveDirectory, fileDirectory, df)
 
@@ -212,7 +228,19 @@ def opere_immagini(spark, sc):
     else:
         print("Non ci sono immagini nella Raw one")
 
+"""
+Vengono lette tutte le categorie (da file.csv) nella cartella raw/visitatori/categorie/
+Struttura del nome file: ID;Nome categoria,ETA MIN-ETA MAX
+
+La fascia di età viene spostata in due colonne distinte: eta_min e eta_max
+Viene derivata la data di creazione
+"""
+#TODO le categorie ora sono solo legate alla fascia di età, si possono inserire altri criteri
+#TODO servirebbe un campo per identficare la tipologia di categoria (Età, Sesso ecc.)
+#TODO anche le lavorazioni nella standardized zone andrebbero modificate di conseguenza
 def visitatori_categorie(spark, sc):
+    print("inizio a spostare le categorie da Raw a Standardized")
+
     fileDirectory = 'raw/visitatori/categorie/'
     moveDirectory = 'raw/visitatori/categorie/processed/'
     destinationDirectory = 'standardized/visitatori/categorie/'
@@ -226,8 +254,8 @@ def visitatori_categorie(spark, sc):
 
         # legge tutti i file nella directory
         df = spark.read.schema(schema).option("delimiter", ";").csv(fileDirectory)
-        df.printSchema()
-        df.show()
+        #df.printSchema()
+        #df.show()
 
         udfModificationDate = udf(Utilities.modificationDate)
         udfFilePath = udf(Utilities.filePath)
@@ -240,9 +268,9 @@ def visitatori_categorie(spark, sc):
                 .withColumn("eta_min", udfEtaMin(func.col("fascia_eta"))) \
                 .withColumn("eta_max", udfEtaMax(func.col("fascia_eta")))
         new = new.withColumn("data_creazione", to_timestamp(from_unixtime(udfModificationDate(func.col("input_file")))))
-
+        print("Categorie trovate:")
         new.show()
-        new.printSchema()
+        #new.printSchema()
 
         # salvataggio del DataFrame (solo se contiene informazioni)
         os.makedirs(destinationDirectory, exist_ok=True)
@@ -251,16 +279,22 @@ def visitatori_categorie(spark, sc):
 
         # i file letti vengono spostati nella cartella processed
         Utilities.move_input_file(moveDirectory, fileDirectory, df)
-        """os.makedirs(moveDirectory, exist_ok=True)
-        data = df.withColumn("input_file", input_file_name())
-        lista = data.select("input_file").rdd.flatMap(lambda x: x).collect()
-        for a in list(set(lista)):
-            fname = a.split("/")[-1]
-            shutil.move(fileDirectory + fname, moveDirectory + fname)"""
+
     else:
         print("Non ci sono categorie nella Raw Zone")
 
+"""
+Vengono lette tutti i visitatori (da file.csv) nella cartella raw/visitatori/elenco/
+Struttura del nome file: ID;Nome;Cognome;Sesso;Età
+
+Nome, Cognome e Sesso vengono messi con la prima lettera maiuscola
+Viene derivata la data di creazione del file
+"""
+#TODO possibilità di aggiungere altre informazioni associate ad un visitatore
+#TODO possibile controllo che l'età sia scritta correttamente
 def visitatori_elenco(spark, sc):
+    print("inizio a spostare i visitatori da Raw a Standardized")
+
     fileDirectory = 'raw/visitatori/elenco/'
     moveDirectory = 'raw/visitatori/elenco/processed/'
     destinationDirectory = 'standardized/visitatori/elenco/'
@@ -276,7 +310,7 @@ def visitatori_elenco(spark, sc):
 
         # legge tutti i file nella directory
         df = spark.read.schema(schema).option("delimiter", ";").csv(fileDirectory)
-        df.printSchema()
+        #df.printSchema()
 
         udfModificationDate = udf(Utilities.modificationDate)
         udfFilePath = udf(Utilities.filePath)
@@ -287,8 +321,8 @@ def visitatori_elenco(spark, sc):
                 .withColumn("input_file",udfFilePath(input_file_name()))
         new = new.withColumn("data_creazione", to_timestamp(from_unixtime(udfModificationDate(func.col("input_file")))))
 
-        new.show()
-        new.printSchema()
+        new.drop("input_file").show()
+        #new.printSchema()
 
         # salvataggio del DataFrame (solo se contiene informazioni)
         os.makedirs(destinationDirectory, exist_ok=True)
@@ -297,16 +331,19 @@ def visitatori_elenco(spark, sc):
 
         # i file letti vengono spostati nella cartella processed
         Utilities.move_input_file(moveDirectory, fileDirectory, df)
-        """os.makedirs(moveDirectory, exist_ok=True)
-        data = df.withColumn("input_file", input_file_name())
-        lista = data.select("input_file").rdd.flatMap(lambda x: x).collect()
-        for a in list(set(lista)):
-            fname = a.split("/")[-1]
-            shutil.move(fileDirectory + fname, moveDirectory + fname)"""
+
     else:
         print("Non ci sono visitatori nella Raw Zone")
+"""
+Vengono lette tutte le visite (da file.csv) nella cartella raw/visitatori/visite/
+Struttura del nome file: ID;Visitatore ID;Opera ID;Durata;Timestamp
 
+Il timestamp viene convertito in data
+"""
+#TODO possibili controlli sul formato della durata mm:ss
 def visitatori_visite(spark, sc):
+    print("inizio a spostare le visite da Raw a Standardized")
+
     fileDirectory = 'raw/visitatori/visite/'
     moveDirectory = 'raw/visitatori/visite/processed/'
     destinationDirectory = 'standardized/visitatori/visite/'
@@ -322,7 +359,7 @@ def visitatori_visite(spark, sc):
 
         # legge tutti i file nella directory
         df = spark.read.schema(schema).option("delimiter", ";").csv(fileDirectory)
-        df.printSchema()
+        #df.printSchema()
 
         udfModificationDate = udf(Utilities.modificationDate)
         udfFilePath = udf(Utilities.filePath)
@@ -331,7 +368,7 @@ def visitatori_visite(spark, sc):
                 .withColumn("input_file",udfFilePath(input_file_name()))
 
         new.show()
-        new.printSchema()
+        #new.printSchema()
 
         # salvataggio del DataFrame (solo se contiene informazioni)
         os.makedirs(destinationDirectory, exist_ok=True)
@@ -340,12 +377,7 @@ def visitatori_visite(spark, sc):
 
         # i file letti vengono spostati nella cartella processed
         Utilities.move_input_file(moveDirectory, fileDirectory, df)
-        """os.makedirs(moveDirectory, exist_ok=True)
-        data = df.withColumn("input_file", input_file_name())
-        lista = data.select("input_file").rdd.flatMap(lambda x: x).collect()
-        for a in list(set(lista)):
-            fname = a.split("/")[-1]
-            shutil.move(fileDirectory + fname, moveDirectory + fname)"""
+
     else:
         print("Non ci sono visite nella Raw Zone")
 
