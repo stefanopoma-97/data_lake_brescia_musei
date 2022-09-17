@@ -19,7 +19,16 @@ import sys
 import Utilities
 
 
+"""
+Vengono lette tutte le categorie (da file.csv) nella cartella standardized/visitatori/categorie/
 
+Dal dataframe vengono rimossi i duplicati.
+Il dataframe è unito con quello contenente le categorie già salvate nella curated
+Vengono mantenute le categorie inserite in una data più recente in caso di duplicati
+
+Si considerano duplicati due categorie con lo stesso ID
+"""
+#TODO in questa fase si potrebbero eslcudere tutte le categorie con dati mancanti (eta min e max o nome)
 def categoria_visitatori(spark):
     print("inizio a spostare le categorie da Standardized a Curated")
     fileDirectory = 'standardized/visitatori/categorie/'
@@ -30,16 +39,18 @@ def categoria_visitatori(spark):
         lista_categorie = spark.read.option("header", "true").option("inferSchema", "true").option("delimiter", ";").csv(
             fileDirectory)
         lista_categorie_no_duplicates = Utilities.drop_duplicates_row(lista_categorie, "data_creazione",["id"])
+        print("Categorie lette")
         lista_categorie_no_duplicates.show()
 
         os.makedirs(destinationDirectory, exist_ok=True)
         if (Utilities.check_csv_files(destinationDirectory)):
             lista_categorie_salvate=spark.read.option("header", "true").option("inferSchema", "true").option("delimiter", ";").csv(
             destinationDirectory)
+            print("Categorie presenti nella curated")
             lista_categorie_salvate.show()
             union = lista_categorie_no_duplicates.union(lista_categorie_salvate)
             union = Utilities.drop_duplicates_row(union, "data_creazione",["id"])
-            print("Dataframe uniti")
+            print("Dataframe uniti con le categorie nella curated")
             union.show()
             union.write.mode("append").option("header", "true").option("delimiter", ";").csv(
                 destinationDirectory)
@@ -47,7 +58,7 @@ def categoria_visitatori(spark):
 
 
         else:
-            print("non ci sono categorie già salvate")
+            print("non ci sono categorie già salvate nella curated")
             os.makedirs(destinationDirectory, exist_ok=True)
             if (lista_categorie_no_duplicates.count() > 0):
                 lista_categorie_no_duplicates.write.mode("append").option("header", "true").option("delimiter", ";").csv(
@@ -57,6 +68,16 @@ def categoria_visitatori(spark):
     else:
         print("Non c'è nessuna nuova categoria nella standardized")
 
+"""
+Vengono lette tutti i visitatori (da file.csv) nella cartella standardized/visitatori/elenco/
+
+Dal dataframe vengono rimossi i duplicati.
+Il dataframe è unito con quello contenente i visitatori già salvati nella curated
+Vengono mantenute i visitatori inseriti in una data più recente in caso di duplicati
+
+Si considerano duplicati due visitatori con lo stesso ID
+"""
+#TODO possibile non considerare quei visitatori con dei dati mancanti
 def visitatori(spark):
     print("inizio a spostare i visitatori da Standardized a Curated")
     fileDirectory = 'standardized/visitatori/elenco/'
@@ -96,6 +117,15 @@ def visitatori(spark):
     else:
         print("Non c'è nessuna nuovo visitatore nella standardized")
 
+"""
+Vengono lette tutte le visite (da file.csv) nella cartella standardized/visitatori/visite/
+
+Dal dataframe vengono rimossi i duplicati.
+Il dataframe è unito con quello contenente le visite già salvate nella curated
+Vengono mantenute le visite inseriti in una data più recente in caso di duplicati (non dovrebbe succedere)
+
+Si considerano duplicati due visite con lo stesso ID (non dovrebbe capitare di avere file duplicati)
+"""
 def visite(spark):
     print("inizio a spostare le visite da Standardized a Curated")
     fileDirectory = 'standardized/visitatori/visite/'
@@ -113,7 +143,7 @@ def visite(spark):
         if (Utilities.check_csv_files(destinationDirectory)):
             lista_categorie_salvate=spark.read.option("header", "true").option("inferSchema", "true").option("delimiter", ";").csv(
             destinationDirectory)
-            print("Visitatori trovati nella curated")
+            print("Visite trovate nella curated")
             lista_categorie_salvate.show()
             union = lista_categorie_no_duplicates.union(lista_categorie_salvate)
             union = Utilities.drop_duplicates_row(union, "data_creazione",["id"])
@@ -125,7 +155,7 @@ def visite(spark):
 
 
         else:
-            print("non ci sono visitatori già salvati")
+            print("non ci sono Visite già salvate")
             os.makedirs(destinationDirectory, exist_ok=True)
             if (lista_categorie_no_duplicates.count() > 0):
                 lista_categorie_no_duplicates.write.mode("append").option("header", "true").option("delimiter", ";").csv(
@@ -133,8 +163,17 @@ def visite(spark):
 
         Utilities.move_input_file(moveDirectory, fileDirectory, lista_categorie)
     else:
-        print("Non c'è nessuna nuovo visitatore nella standardized")
+        print("Non c'è nessuna nuova Visita nella standardized")
 
+"""
+Vengono lette tutte le immagini (da file.csv) nella cartella standardized/opere/immagini/
+
+Dal dataframe vengono rimossi i duplicati.
+Il dataframe è unito con quello contenente le immagini già salvate nella curated
+Vengono mantenute le immagini inseriti in una data più recente in caso di duplicati (non dovrebbe succedere)
+
+Si considerano duplicati due immagini con lo stesso path e id_opera
+"""
 def immagini(spark):
     print("inizio a spostare le immagini da Standardized a Curated")
     fileDirectory = 'standardized/opere/immagini/'
@@ -152,7 +191,7 @@ def immagini(spark):
         if (Utilities.check_csv_files(destinationDirectory)):
             lista_categorie_salvate=spark.read.option("header", "true").option("inferSchema", "true").option("delimiter", ";").csv(
             destinationDirectory)
-            print("Visitatori trovati nella curated")
+            print("Immagini trovate nella curated")
             lista_categorie_salvate.show()
             union = lista_categorie_no_duplicates.union(lista_categorie_salvate)
             union = Utilities.drop_duplicates_row(union, "data_creazione",["input_file","id_opera"])
@@ -164,7 +203,7 @@ def immagini(spark):
 
 
         else:
-            print("non ci sono visitatori già salvati")
+            print("non ci sono immagini già salvate")
             os.makedirs(destinationDirectory, exist_ok=True)
             if (lista_categorie_no_duplicates.count() > 0):
                 lista_categorie_no_duplicates.write.mode("append").option("header", "true").option("delimiter", ";").csv(
@@ -172,8 +211,18 @@ def immagini(spark):
 
         Utilities.move_input_file(moveDirectory, fileDirectory, lista_categorie)
     else:
-        print("Non c'è nessuna nuovo visitatore nella standardized")
+        print("Non c'è nessuna nuova immagini nella standardized")
 
+"""
+Vengono letti tutti gli autori (da file.csv) nella cartella standardized/opere/autori/
+
+Dal dataframe vengono rimossi i duplicati.
+Il dataframe è unito con quello contenente gli autori già salvati nella curated
+Vengono mantenuti gli autori inseriti in una data più recente in caso di duplicati
+
+Si considerano duplicati due autori con lo stesso ID
+"""
+#TODO possibile aggiungere un controllo che i campi fondamentali ci siano, in caso contrario si potrebbe non passarlo alla curated
 def autori(spark):
     print("inizio a spostare gli autori da Standardized a Curated")
     fileDirectory = 'standardized/opere/autori/'
@@ -203,7 +252,7 @@ def autori(spark):
 
 
         else:
-            print("non ci sono visitatori già salvati")
+            print("non ci sono autori già salvati")
             os.makedirs(destinationDirectory, exist_ok=True)
             if (lista_categorie_no_duplicates.count() > 0):
                 lista_categorie_no_duplicates.write.mode("append").option("header", "true").option("delimiter", ";").csv(
@@ -211,8 +260,19 @@ def autori(spark):
 
         Utilities.move_input_file(moveDirectory, fileDirectory, lista_categorie)
     else:
-        print("Non c'è nessuna nuovo visitatore nella standardized")
+        print("Non c'è nessun nuovo autore nella standardized")
 
+"""
+Vengono lette tutte le descrizioni (da file.csv) nella cartella standardized/opere/descrizioni/
+
+Dal dataframe vengono rimossi i duplicati.
+Il dataframe è unito con quello contenente le descrizioni già salvate nella curated
+Vengono mantenute le descrizioni inseriti in una data più recente in caso di duplicati 
+
+Si considerano duplicati due visitatori con lo stesso ID
+"""
+#TODO attualmente un opera ha una descrizione e il sistema di gestione dei duplicati mantiene la più recente
+#TODO si può prevedere di mantenere più descrizioni per una stessa opera
 def descrizioni(spark):
     print("inizio a spostare le descrizioni da Standardized a Curated")
     fileDirectory = 'standardized/opere/descrizioni/'
@@ -252,6 +312,15 @@ def descrizioni(spark):
     else:
         print("Non c'è nessuna nuovo visitatore nella standardized")
 
+"""
+Vengono lette tutte le opere (da file.csv) nella cartella standardized/opere/lista/
+
+Dal dataframe vengono rimossi i duplicati.
+Il dataframe è unito con quello contenente le opere già salvate nella curated
+Vengono mantenute le opere inserite in una data più recente in caso di duplicati
+
+Si considerano duplicati due opere con lo stesso ID
+"""
 def opere(spark):
     print("inizio a spostare le opere da Standardized a Curated")
     fileDirectory = 'standardized/opere/lista/'
@@ -289,10 +358,10 @@ def opere(spark):
 
         Utilities.move_input_file(moveDirectory, fileDirectory, lista_categorie)
     else:
-        print("Non c'è nessuna nuovo visitatore nella standardized")
+        print("Non c'è nessuna nuova opere nella standardized")
 """
 
-"""
+
 def opere_lista(spark):
     fileDirectory = 'standardized/opere/lista/'
     moveDirectory = 'standardized/opere/lista/processed/'
@@ -318,7 +387,7 @@ def opere_lista(spark):
                   )\
             .select(func.col("lista_opere.id").alias("id") )
     join.show()
-
+"""
 
 
 
@@ -339,28 +408,28 @@ def main():
     valore = input("Standardized -> Curated\n"
           "Seleziona un'opzione:\n"
           ""
-          "1) Categoria visitatore\n"
-          "2) Visitatori\n"
-          "3) Visite\n"
-          "4) Immagini\n"
-          "5) Autori\n"
-          "6) Descrizioni\n"
-          "7) Opere\n"
-          "0) Tutti\n")
+           "1) Opere\n"
+           "2) Descrizioni\n"
+           "3) Autori\n"
+           "4) Immagini\n"
+           "5) Categorie\n"
+           "6) Visitatori\n"
+           "7) Visite\n"
+           "0) Tutti\n")
 
-    if (valore=='1'):
+    if (valore=='5'):
         categoria_visitatori(spark)
-    elif (valore=='2'):
+    elif (valore=='6'):
         visitatori(spark)
-    elif (valore == '3'):
+    elif (valore == '7'):
         visite(spark)
     elif (valore == '4'):
         immagini(spark)
-    elif (valore == "5"):
+    elif (valore == "3"):
         autori(spark)
-    elif (valore == '6'):
+    elif (valore == '2'):
         descrizioni(spark)
-    elif (valore == '7'):
+    elif (valore == '1'):
         opere(spark)
     elif (valore == '0'):
         print()
