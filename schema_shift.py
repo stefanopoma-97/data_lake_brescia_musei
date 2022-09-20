@@ -36,11 +36,26 @@ df = spark.read\
     .option("mergeSchema", "true")\
     .option("delimiter", ";")\
     .option("header", "true") \
-    .option("inferSchema","false")\
+    .option("inferSchema","True")\
     .csv(fileDirectory)
 
+#cambio nome a colonna
 if "Nuovo" in df.columns:
     df=df.withColumnRenamed("Nuovo", "colonna da scartare")
+
+#aggiungo colonna
+"""if 'active' not in csvDf.columns:
+  csvDf = csvDf.withColumn('active', lit(None).cast("int"))"""
+
+# Add the source file name (without the extension) as an additional column to help us keep track of data source
+"""csvDf = csvDf.withColumn("sourcefile", lit('01-22-2020.csv'.split('.')[0]))
+"""
+
+# List all the files we have in our store to iterate through them
+"""file_list = [file.name for file in dbutils.fs.ls("dbfs:{}".format(mountPoint))]
+for file in file_list:
+  print(file)"""
+
 
 df.printSchema()
 df.show()
