@@ -126,6 +126,7 @@ Vengono mantenute le visite inseriti in una data più recente in caso di duplica
 
 Si considerano duplicati due visite con lo stesso ID (non dovrebbe capitare di avere file duplicati)
 """
+#TODO escludere visite con dati mancanti
 def visite(spark):
     print("inizio a spostare le visite da Standardized a Curated")
     fileDirectory = 'standardized/visitatori/visite/'
