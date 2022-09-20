@@ -401,7 +401,7 @@ def main():
         master("local"). \
         config("spark.driver.bindAddress", "localhost"). \
         config("spark.ui.port", "4050"). \
-        appName("MinTemperatures"). \
+        appName("CMS"). \
         enableHiveSupport(). \
         getOrCreate()
 

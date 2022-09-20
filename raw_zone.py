@@ -26,6 +26,7 @@ Viene inoltre ricavata la data di creazione dal timestamp
 I file processati vengono inseriti nella sotto-cartella processed, in modo che non vengano analizzati due volte
 """
 #TODO possibile gestire la data di creazione anche in assenza del timestamp o se il timestamp da dei risultati non realistici
+#TODO null in anno
 def opere_lista(spark):
     print("inizio a spostare le opere da Raw a Standardized")
     fileDirectory = 'raw/opere/lista/'
@@ -47,7 +48,6 @@ def opere_lista(spark):
 
         #legge tutti i file nella directory
         df = spark.read.schema(schema).option("delimiter", ";").csv(fileDirectory)
-        #df.printSchema()
 
         #udf per estrarre il secolo
         udfFunction_GetCentury = udf(Utilities.centuryFromYear)
@@ -68,6 +68,34 @@ def opere_lista(spark):
 
         #i file letti vengono spostati nella cartella processed
         Utilities.move_input_file(moveDirectory, fileDirectory, df)
+
+    else:
+        print("Non ci sono opere nella Raw Zone")
+
+def opere_lista_new(spark, sc):
+    print("inizio a spostare le opere da Raw a Standardized")
+    fileDirectory = 'raw/opere/lista/'
+    moveDirectory = 'raw/opere/lista/processed/'
+    destinationDirectory = 'standardized/opere/lista/'
+
+
+    if (Utilities.check_csv_files(fileDirectory)):
+
+        #legge tutti i file nella directory
+        df = spark.read\
+            .option("mergeSchema", "true")\
+            .option("delimiter", ";")\
+            .option("inferSchema", "false") \
+            .option("header", "true") \
+            .csv(fileDirectory)
+
+
+
+        df.printSchema()
+        df.show()
+
+
+
 
     else:
         print("Non ci sono opere nella Raw Zone")
@@ -392,7 +420,7 @@ def main():
         master("local"). \
         config("spark.driver.bindAddress", "localhost"). \
         config("spark.ui.port", "4050"). \
-        appName("MinTemperatures"). \
+        appName("CMS"). \
         enableHiveSupport(). \
         getOrCreate()
 
@@ -406,6 +434,7 @@ def main():
                    "5) Categorie\n"
                    "6) Visitatori\n"
                    "7) Visite\n"
+                   "8) Opere (NEW)\n"
                    "0) Tutti\n")
 
     if (valore == '1'):
@@ -422,6 +451,8 @@ def main():
         visitatori_elenco(spark, sc)
     elif (valore == '7'):
         visitatori_visite(spark, sc)
+    elif (valore == '8'):
+        opere_lista_new(spark, sc)
     elif (valore == '0'):
         print()
         # TODO implementare tutti
