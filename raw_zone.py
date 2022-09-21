@@ -8,7 +8,7 @@ from pyspark import SparkContext, SparkConf
 from pyspark.sql import SparkSession
 from pyspark.sql import DataFrame
 from pyspark.sql import Row
-from pyspark.sql.functions import col, avg, to_date, from_unixtime, initcap, udf, input_file_name, substring_index, current_timestamp, to_timestamp, upper
+from pyspark.sql.functions import col, avg, to_date, from_unixtime, initcap, udf, input_file_name, substring_index, current_timestamp, to_timestamp, upper, lit, when
 from pyspark.sql import functions as func
 from pyspark.sql.types import StructType, StructField, StringType, IntegerType, FloatType, DateType, TimestampType
 import os
@@ -71,11 +71,36 @@ def opere_lista(spark):
 
     else:
         print("Non ci sono opere nella Raw Zone")
-
-def opere_lista_new(spark, sc):
-    print("inizio a spostare le opere da Raw a Standardized")
+"""
+la funzione serve ad identificare le sottocartelle (fonti) di raw/opere/lista ed eseguire la funzione
+opere_lista_new() su ognuna delle sottocartelle trovate
+"""
+def opere_sottocartelle(spark, sc):
+    print("Controllo le sottocartelle di raw/opere/lista")
     fileDirectory = 'raw/opere/lista/'
-    moveDirectory = 'raw/opere/lista/processed/'
+
+    cartelle = Utilities.check_sub_folder(fileDirectory)
+
+    for c in cartelle:
+        print("Sottocartelle: "+c)
+        opere_lista_new(spark, sc, c)
+
+
+"""
+Vengono lette tutte le opere (da file.csv) nella cartella raw/opere/lista/sottocartella
+Struttura finale: id;tagid;titolo;tipologia;anno;secolo;provenienza;autore;data_creazione;nome_file;fonte
+Viene aggiunto il secolo, gli autori sono messi con la prima lettera maiuscola, viene derivata la data dal timestamp
+Viene inserito l'header e il nuovo dataframe viene salvato nella standardized zone.
+Viene inoltre ricavata la data di creazione dal timestamp
+
+I file processati vengono inseriti nella sotto-cartella processed, in modo che non vengano analizzati due volte
+"""
+#TODO possibile gestire la data di creazione anche in assenza del timestamp o se il timestamp da dei risultati non realistici
+#TODO null in anno
+def opere_lista_new(spark, sc, fileDirectory):
+    print("inizio a spostare le opere da Raw a Standardized: "+fileDirectory)
+    #fileDirectory = 'raw/opere/lista/'
+    moveDirectory = fileDirectory + "processed/"
     destinationDirectory = 'standardized/opere/lista/'
 
 
@@ -90,15 +115,123 @@ def opere_lista_new(spark, sc):
             .csv(fileDirectory)
 
 
+        #le colonne vengono messe in minuscolo e senza spazi, / o _
+        for column in df.columns:
+            new_column = column.replace(' ', '').replace('/', '').replace('_', '')
+            df = df.withColumnRenamed(column, new_column.lower())
+
+
+
+        #id;tagid;titolo;tipologia;anno;secolo;provenienza;autore;data_creazione;nome_file;fonte
+
+        #Cambio ID
+        possibili_id = []
+        for valore in possibili_id:
+            if valore in df.columns:
+                df = df.withColumnRenamed(valore, "id")
+        if 'id' not in df.columns:
+            df = df.withColumn('id', lit(None).cast("string"))
+
+        # Cambio Tag Id
+        possibili_id = ["tagid"]
+        for valore in possibili_id:
+            if valore in df.columns:
+                df = df.withColumnRenamed(valore, "tag_id")
+        if 'tag_id' not in df.columns:
+            df = df.withColumn('tag_id', lit(None).cast("string"))
+
+        # Cambio titolo
+        possibili_id = ["nome"]
+        for valore in possibili_id:
+            if valore in df.columns:
+                df = df.withColumnRenamed(valore, "titolo")
+        if 'titolo' not in df.columns:
+            df = df.withColumn('titolo', lit(None).cast("string"))
+
+        # Cambio tipologia
+        possibili_id = ["tipo"]
+        for valore in possibili_id:
+            if valore in df.columns:
+                df = df.withColumnRenamed(valore, "tipologia")
+        if 'tipologia' not in df.columns:
+            df = df.withColumn('tipologia', lit(None).cast("string"))
+
+        # Cambio anno
+        possibili_id = ["data"]
+        for valore in possibili_id:
+            if valore in df.columns:
+                df = df.withColumnRenamed(valore, "anno")
+        if 'anno' not in df.columns:
+            df = df.withColumn('anno', lit(None).cast("int"))
+
+        # Cambio provenienza
+        possibili_id = ["luogo"]
+        for valore in possibili_id:
+            if valore in df.columns:
+                df = df.withColumnRenamed(valore, "provenienza")
+        if 'provenienza' not in df.columns:
+            df = df.withColumn('provenienza', lit(None).cast("string"))
+
+        # Cambio autore
+        possibili_id = ["creatore", "artista"]
+        for valore in possibili_id:
+            if valore in df.columns:
+                df = df.withColumnRenamed(valore, "autore")
+        if 'autore' not in df.columns:
+            df = df.withColumn('autore', lit(None).cast("string"))
+
+        # Cambio timestamp
+        possibili_id = ["time"]
+        for valore in possibili_id:
+            if valore in df.columns:
+                df = df.withColumnRenamed(valore, "timestamp")
+        if 'timestamp' not in df.columns:
+            df = df.withColumn('timestamp', lit(None).cast("int"))
+
+        df = df.alias("df").select(
+            func.col("id"),
+            func.col("tag_id"),
+            func.col("titolo"),
+            func.col("tipologia"),
+            func.col("anno").cast("int"),
+            func.col("provenienza"),
+            func.col("autore"),
+            func.col("timestamp").cast("int")
+        )
+
+
+
+        udfFunction_GetCentury = udf(Utilities.centuryFromYear)
+        udfModificationDate = udf(Utilities.modificationDate)
+        udfFilePath = udf(Utilities.filePath)
+        udfSourceFile = udf(Utilities.filePathInProcessed)
+        udfFonte = udf(Utilities.filePathFonte)
+
+
+
+        # modifica del dataframe (inserita la data, il secolo e sistemato il campo autore)
+        df = df.withColumn("input_file", udfFilePath(input_file_name())) \
+                .withColumn("source_file", udfSourceFile(input_file_name()))\
+                .withColumn("data_creazione",
+                           when(func.col("timestamp").isNull(), to_timestamp(from_unixtime(udfModificationDate(func.col("input_file")))))
+                           .otherwise(to_timestamp(from_unixtime("timestamp")))
+                           ) \
+                .withColumn("fonte", udfFonte(input_file_name())) \
+                .withColumn("autore",
+                            when(func.col("autore").isNotNull(),initcap("autore"))
+                            ) \
+                .withColumn("secolo",
+                            when(func.col("anno").isNotNull(),udfFunction_GetCentury(df.anno)))
 
         df.printSchema()
-        df.show()
+        df.show(10, False)
+
 
 
 
 
     else:
-        print("Non ci sono opere nella Raw Zone")
+        print("Non ci sono opere in "+fileDirectory)
 
 """
 
@@ -438,7 +571,7 @@ def main():
                    "0) Tutti\n")
 
     if (valore == '1'):
-        opere_lista(spark)
+        opere_sottocartelle(spark, sc)
     elif (valore == '2'):
         opere_descrizioni(spark, sc)
     elif (valore == '3'):
@@ -451,8 +584,6 @@ def main():
         visitatori_elenco(spark, sc)
     elif (valore == '7'):
         visitatori_visite(spark, sc)
-    elif (valore == '8'):
-        opere_lista_new(spark, sc)
     elif (valore == '0'):
         print()
         # TODO implementare tutti

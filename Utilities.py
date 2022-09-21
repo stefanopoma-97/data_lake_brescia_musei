@@ -44,6 +44,7 @@ def filePath(origin):
     s = s.replace("//", "")
     return s
 
+
 def filePathInProcessed(origin):
     s = origin.replace("%20", " ")
     s = s.replace("file:/", "")
@@ -51,6 +52,27 @@ def filePathInProcessed(origin):
     old = "/"
     new = "/processed/"
     s = new.join(s.rsplit(old, 1))
+    return s
+
+def filePathFonte(origin):
+    s = origin.replace("%20", " ")
+    s = s.replace("file:/", "")
+    s = s.replace("//", "")
+    array = s.split("/")
+    return array[-2]
+
+def filePathInProcessedNew(origin):
+    s = origin.replace("%20", " ")
+    s = s.replace("file:/", "")
+    s = s.replace("//", "")
+    array = s.split("/")
+    array = array.pop()
+    stringa = ""
+    for el in array:
+        stringa = stringa+el+"/"
+    old = "/"
+    new = "/processed/"
+    stringa = new.join(stringa.rsplit(old, 1))
     return s
 
 """
@@ -64,6 +86,23 @@ def check_csv_files(directory):
             if (fname.split(".")[-1] == "csv"):
                 file=True
     return file
+
+"""
+Funzione per restituire le cartelle con file presenti in una directory
+"""
+def check_sub_folder(directory):
+    print("controllo quante sottocartelle piene ci sono")
+    array = []
+    dir = os.listdir(directory)
+    for d in dir:
+        if (os.path.isdir(directory + d)):
+            if (d != "processed"):
+                array.append(d)
+    cartelle_non_vuote = []
+    for cartella in array:
+        if len(os.listdir(directory + cartella))>0:
+            cartelle_non_vuote.append(directory + cartella+"/")
+    return cartelle_non_vuote
 
 def check_jpeg_files(directory):
     file = False
