@@ -1003,13 +1003,7 @@ def visitatori_elenco_new(spark, sc, fileDirectory):
 
 
 
-"""
-Vengono lette tutte le visite (da file.csv) nella cartella raw/visitatori/visite/
-Struttura del nome file: ID;Visitatore ID;Opera ID;Durata;Timestamp
 
-Il timestamp viene convertito in data
-"""
-#TODO possibili controlli sul formato della durata mm:ss
 def visitatori_visite(spark, sc):
     print("inizio a spostare le visite da Raw a Standardized")
 
@@ -1049,6 +1043,148 @@ def visitatori_visite(spark, sc):
 
     else:
         print("Non ci sono visite nella Raw Zone")
+
+
+"""
+Vengono lette tutte le visite (da file.csv) nella cartella raw/visitatori/visite/
+Struttura del nome file: ID;Visitatore ID;Opera ID;Durata;Timestamp
+
+Il timestamp viene convertito in data
+"""
+def visitatori_visite_new(spark, sc, fileDirectory):
+    print("inizio a spostare le visite da Raw a Standardized: "+fileDirectory)
+    #fileDirectory = 'raw/opere/lista/'
+    moveDirectory = fileDirectory + "processed/"
+    destinationDirectory = 'standardized/visitatori/visite/'
+
+
+    if (Utilities.check_csv_files(fileDirectory)):
+
+        #legge tutti i file nella directory
+        df = spark.read\
+            .option("mergeSchema", "true")\
+            .option("delimiter", ";")\
+            .option("inferSchema", "false") \
+            .option("header", "true") \
+            .csv(fileDirectory)
+
+        #id,nome_categoria,fascia_età
+
+        #le colonne vengono messe in minuscolo e senza spazi, / o _
+        for column in df.columns:
+            new_column = column.replace(' ', '').replace('/', '').replace('_', '')
+            df = df.withColumnRenamed(column, new_column.lower())
+
+
+
+        #ID;ID visitatore;id Opera;Durata;Timestamp
+
+        #Cambio ID
+        possibili_id = []
+        for valore in possibili_id:
+            if valore in df.columns:
+                df = df.withColumnRenamed(valore, "id")
+        if 'id' not in df.columns:
+            df = df.withColumn('id', lit(None).cast("string"))
+
+        # Cambio visitatore_id
+        possibili_id = ["visitatore","idvisitatore","visitatoreid"]
+        for valore in possibili_id:
+            if valore in df.columns:
+                df = df.withColumnRenamed(valore, "visitatore_id")
+        if 'visitatore_id' not in df.columns:
+            df = df.withColumn('visitatore_id', lit(None).cast("string"))
+
+        # Cambio opera_id
+        possibili_id = ["opera","idopera","operaid"]
+        for valore in possibili_id:
+            if valore in df.columns:
+                df = df.withColumnRenamed(valore, "opera_id")
+        if 'opera_id' not in df.columns:
+            df = df.withColumn('opera_id', lit(None).cast("string"))
+
+        # Cambio timestamp
+        possibili_id = ["time"]
+        for valore in possibili_id:
+            if valore in df.columns:
+                df = df.withColumnRenamed(valore, "timestamp")
+        if 'timestamp' not in df.columns:
+            df = df.withColumn('timestamp', lit(None).cast("int"))
+
+        # Cambio durata
+        possibili_id = ["tempo"]
+        for valore in possibili_id:
+            if valore in df.columns:
+                df = df.withColumnRenamed(valore, "durata")
+        if 'durata' not in df.columns:
+            df = df.withColumn('durata', lit(None).cast("string"))
+
+
+        #cast e ordinamento colonne
+        df = df.alias("df").select(
+            func.col("id"),
+            func.col("visitatore_id"),
+            func.col("opera_id"),
+            func.col("timestamp").cast("int"),
+            func.col("durata")
+        )
+
+
+
+        udfModificationDate = udf(Utilities.modificationDate)
+        udfFilePath = udf(Utilities.filePath)
+        udfSourceFile = udf(Utilities.filePathInProcessed)
+        udfFonte = udf(Utilities.filePathFonte)
+        udfDurataInSecondi = udf(Utilities.durataInSecondi)
+
+
+
+        # modifica del dataframe (inserita la data, il secolo e sistemato il campo autore)
+        df = df.withColumn("input_file", udfFilePath(input_file_name())) \
+                .withColumn("source_file", udfSourceFile(input_file_name()))\
+                .withColumn("fonte", udfFonte(input_file_name())) \
+                .withColumn("data_creazione",
+                            when(func.col("timestamp").isNull(),
+                                 to_timestamp(from_unixtime(udfModificationDate(func.col("input_file")))))
+                            .otherwise(to_timestamp(from_unixtime("timestamp")))
+                            )\
+                .withColumn("durata",
+                            when(func.col("durata").isNotNull(), udfDurataInSecondi(func.col("durata"))
+                                 )
+                            )
+
+        df.printSchema()
+        df.show(10, False)
+
+        # salvataggio del DataFrame (solo se contiene informazioni)
+        os.makedirs(destinationDirectory, exist_ok=True)
+        if (df.count() > 0):
+            df.drop("input_file").write.mode("append").option("header", "true").option("delimiter", ";").csv(
+                destinationDirectory)
+
+        # i file letti vengono spostati nella cartella processed
+        Utilities.move_input_file(moveDirectory, fileDirectory, df)
+
+
+    else:
+        print("Non ci sono opere in "+fileDirectory)
+
+
+
+"""
+la funzione serve ad identificare le sottocartelle (fonti) di raw/visitatori/visite/ ed eseguire la funzione
+visitatori_visite_new() su ognuna delle sottocartelle trovate
+"""
+def visite_sottocartelle(spark, sc):
+    print("Controllo le sottocartelle di raw/visitatori/visite/")
+    fileDirectory = 'raw/visitatori/visite/'
+
+    cartelle = Utilities.check_sub_folder(fileDirectory)
+
+    for c in cartelle:
+        print("Sottocartelle: "+c)
+        visitatori_visite_new(spark, sc, c)
+
 
 def main():
     print("Da Raw Zone a Standardized Zone")
@@ -1090,10 +1226,14 @@ def main():
     elif (valore == '6'):
         visitatori_sottocartelle(spark, sc)
     elif (valore == '7'):
-        visitatori_visite(spark, sc)
+        visite_sottocartelle(spark, sc)
     elif (valore == '0'):
-        print()
-        # TODO implementare tutti
+        opere_sottocartelle(spark, sc)
+        descrizioni_sottocartelle(spark, sc)
+        autori_sottocartelle(spark, sc)
+        immagini_sottocartelle(spark, sc)
+        categorie_sottocartelle(spark, sc)
+        visitatori_sottocartelle(spark, sc)
 
 if __name__ == "__main__":
     main()

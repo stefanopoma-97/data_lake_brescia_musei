@@ -2,6 +2,8 @@ import math
 import os.path, time, os
 from pyspark.sql.functions import col, avg, to_date, from_unixtime, initcap, udf, desc, input_file_name
 import shutil
+import re
+
 
 def modificationDate(file):
     ti_c = os.path.getctime(file)
@@ -87,6 +89,30 @@ def checkSesso(s):
         if s=="M" or s=="F":
             return s
     return None
+
+
+import datetime
+
+
+def durataInSecondi(s):
+    pattern_secondi=r"^\d+"
+    if re.fullmatch(pattern_secondi, s)!=None:
+        #print(s + "match con:"+pattern_secondi)
+        #t = '10:15:30'
+        #h, m, s = t.split(':')
+        return (int(datetime.timedelta(seconds=int(s)).total_seconds()))
+
+    #H:mm:ss
+    pattern = r"^\d{1,2}:\d{2}:\d{2}"
+    if re.fullmatch(pattern, s)!=None:
+        h, m, se = s.split(':')
+        return (int(datetime.timedelta(hours=int(h),minutes=int(m),seconds=int(se)).total_seconds()))
+
+    # mm:ss
+    pattern = r"^\d{2}:\d{2}"
+    if re.fullmatch(pattern, s) != None:
+        m, se = s.split(':')
+        return (int(datetime.timedelta(minutes=int(m), seconds=int(se)).total_seconds()))
 
 
 def filePathInProcessedNew(origin):
