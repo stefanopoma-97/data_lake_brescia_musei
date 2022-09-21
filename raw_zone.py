@@ -88,10 +88,16 @@ def opere_sottocartelle(spark, sc):
 
 """
 Vengono lette tutte le opere (da file.csv) nella cartella raw/opere/lista/sottocartella
-Struttura finale: id;tagid;titolo;tipologia;anno;secolo;provenienza;autore;data_creazione;nome_file;fonte
+Struttura finale: id;tagid;titolo;tipologia;anno;secolo;provenienza;autore;data_creazione;source_file;fonte
+
+I file csv vengono confrontati con la struttura sopra riportata, colonne con un nome simile a quelle dello schema vengono rinominate.
+Se alcune colonne non esistono nel file vengono create e i valori vengono impostati a null
+
+Dopo aver applicato lo schema vengono eseguite una serie di operazioni (controllando prima che il campo da processare non sia null):
 Viene aggiunto il secolo, gli autori sono messi con la prima lettera maiuscola, viene derivata la data dal timestamp
 Viene inserito l'header e il nuovo dataframe viene salvato nella standardized zone.
-Viene inoltre ricavata la data di creazione dal timestamp
+Viene inoltre ricavata la data di creazione dal timestamp.
+
 
 I file processati vengono inseriti nella sotto-cartella processed, in modo che non vengano analizzati due volte
 """
@@ -188,6 +194,7 @@ def opere_lista_new(spark, sc, fileDirectory):
         if 'timestamp' not in df.columns:
             df = df.withColumn('timestamp', lit(None).cast("int"))
 
+        #cast e ordinamento colonne
         df = df.alias("df").select(
             func.col("id"),
             func.col("tag_id"),
@@ -226,8 +233,14 @@ def opere_lista_new(spark, sc, fileDirectory):
         df.printSchema()
         df.show(10, False)
 
+        # salvataggio del DataFrame (solo se contiene informazioni)
+        os.makedirs(destinationDirectory, exist_ok=True)
+        if (df.count() > 0):
+            df.drop("timestamp","input_file").write.mode("append").option("header", "true").option("delimiter", ";").csv(
+                destinationDirectory)
 
-
+        # i file letti vengono spostati nella cartella processed
+        Utilities.move_input_file(moveDirectory, fileDirectory, df)
 
 
     else:
