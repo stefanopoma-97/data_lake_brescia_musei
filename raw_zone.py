@@ -1163,17 +1163,49 @@ def visitatori_visite_new(spark, sc, fileDirectory):
                             when(func.col("durata").isNotNull(), udfDurataInSecondi(func.col("durata"))
                                  )
                             )\
-                .withColumn("durata",func.col("durata").cast("int"))\
-                .withColumn("data_visita",
-                            when(func.to_date(df.data_visita, "yyyy-MM-dd").isNotNull(),
-                                 func.date_format(func.to_date(df.data_visita, "yyyy-MM-dd"), "yyyy-MM-dd")
-                                 )
-                            .when(func.to_date(df.data_visita, "yyyy-MM-dd HH:MM:SS").isNotNull(),
-                                 func.date_format(func.to_date(df.data_visita, "yyyy-MM-dd hh:mm:ss"), "yyyy-MM-dd hh:mm:ss")
-                                 )
-                            .otherwise(None)
-                            )\
-                .withColumn("data_visita", func.col("data_visita").cast(DateType()))
+                .withColumn("durata",func.col("durata").cast("int")) \
+            .withColumn("timestamp_visita",
+                        when(func.to_timestamp(df.data_visita, "yyyy-MM-dd HH:mm:ss").isNotNull(),
+                             func.to_timestamp(df.data_visita, "yyyy-MM-dd HH:mm:ss"
+                                               ))
+                        .when(func.to_timestamp(df.data_visita, "yyyy-MM-dd").isNotNull(),
+                              func.to_timestamp(df.data_visita, "yyyy-MM-dd"
+                                                ))
+                        .when(func.to_timestamp(df.data_visita, "yyyy\MM\dd HH:mm:ss").isNotNull(),
+                              func.to_timestamp(df.data_visita, "yyyy\MM\dd HH:mm:ss"
+                                                ))
+                        .when(func.to_timestamp(df.data_visita, "yyyy\MM\dd").isNotNull(),
+                              func.to_timestamp(df.data_visita, "yyyy\MM\dd"
+                                                ))
+                        .when(func.to_timestamp(df.data_visita, "yyyy MM dd HH:mm:ss").isNotNull(),
+                              func.to_timestamp(df.data_visita, "yyyy MM dd HH:mm:ss"
+                                                ))
+                        .when(func.to_timestamp(df.data_visita, "yyyy MM dd").isNotNull(),
+                              func.to_timestamp(df.data_visita, "yyyy MM dd"
+                                                ))
+                        .otherwise(None)
+                        ) \
+            .withColumn("timestamp_visita", func.col("timestamp_visita").cast(TimestampType()))\
+            .withColumn("data_visita",
+                                when(func.to_date(df.data_visita, "yyyy-MM-dd").isNotNull(),
+                                     func.date_format(func.to_date(df.data_visita, "yyyy-MM-dd"), "yyyy-MM-dd")
+                                     )
+                                .when(func.to_date(df.data_visita, "yyyy\MM\dd").isNotNull(),
+                                      func.date_format(func.to_date(df.data_visita, "yyyy\MM\dd"),
+                                                       "yyyy-MM-dd")
+                                      )
+                                .when(func.to_date(df.data_visita, "yyyy/MM/dd").isNotNull(),
+                                      func.date_format(func.to_date(df.data_visita, "yyyy/MM/dd"),
+                                                       "yyyy-MM-dd")
+                                      )
+                                .when(func.to_date(df.data_visita, "yyyy MM dd").isNotNull(),
+                                     func.date_format(func.to_date(df.data_visita, "yyyy MM dd"), "yyyy-MM-dd")
+                                     )
+                                .otherwise(None)
+                                )\
+                    .withColumn("data_visita", func.col("data_visita").cast(DateType())) \
+
+        #to_timestamp(col("input_timestamp"), "MM-dd-yyyy HH mm ss SSS")
 
         df.printSchema()
         df.show(10, False)
@@ -1233,8 +1265,8 @@ def main():
         enableHiveSupport(). \
         getOrCreate()
 
-    #spark.sql("set spark.sql.legacy.timeParserPolicy=LEGACY")
-    spark.sql("set spark.sql.legacy.timeParserPolicy=CORRECTED")
+    spark.sql("set spark.sql.legacy.timeParserPolicy=LEGACY")
+    #spark.sql("set spark.sql.legacy.timeParserPolicy=CORRECTED")
 
     valore = input("Standardized -> Curated\n"
                    "Seleziona un'opzione:\n"
