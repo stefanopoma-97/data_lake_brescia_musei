@@ -8,7 +8,7 @@ from pyspark import SparkContext, SparkConf
 from pyspark.sql import SparkSession
 from pyspark.sql import DataFrame
 from pyspark.sql import Row
-from pyspark.sql.functions import col, avg, to_date, from_unixtime, initcap, udf, input_file_name, substring_index, current_timestamp, to_timestamp, upper, lit, when
+from pyspark.sql.functions import col, avg, to_date, from_unixtime, initcap, udf, input_file_name, substring_index, current_timestamp, to_timestamp, upper, lit, when, date_format
 from pyspark.sql import functions as func
 from pyspark.sql.types import StructType, StructField, StringType, IntegerType, FloatType, DateType, TimestampType
 import os
@@ -1119,6 +1119,14 @@ def visitatori_visite_new(spark, sc, fileDirectory):
         if 'durata' not in df.columns:
             df = df.withColumn('durata', lit(None).cast("string"))
 
+        # Cambio data
+        possibili_id = ["data"]
+        for valore in possibili_id:
+            if valore in df.columns:
+                df = df.withColumnRenamed(valore, "data_visita")
+        if 'data_visita' not in df.columns:
+            df = df.withColumn('data_visita', lit(None))
+
 
         #cast e ordinamento colonne
         df = df.alias("df").select(
@@ -1126,7 +1134,8 @@ def visitatori_visite_new(spark, sc, fileDirectory):
             func.col("visitatore_id"),
             func.col("opera_id"),
             func.col("timestamp").cast("int"),
-            func.col("durata")
+            func.col("durata"),
+            func.col("data_visita").cast("string")
         )
 
 
@@ -1136,6 +1145,8 @@ def visitatori_visite_new(spark, sc, fileDirectory):
         udfSourceFile = udf(Utilities.filePathInProcessed)
         udfFonte = udf(Utilities.filePathFonte)
         udfDurataInSecondi = udf(Utilities.durataInSecondi)
+
+        df.show()
 
 
 
@@ -1151,7 +1162,18 @@ def visitatori_visite_new(spark, sc, fileDirectory):
                 .withColumn("durata",
                             when(func.col("durata").isNotNull(), udfDurataInSecondi(func.col("durata"))
                                  )
-                            )
+                            )\
+                .withColumn("durata",func.col("durata").cast("int"))\
+                .withColumn("data_visita",
+                            when(func.to_date(df.data_visita, "yyyy-MM-dd").isNotNull(),
+                                 func.date_format(func.to_date(df.data_visita, "yyyy-MM-dd"), "yyyy-MM-dd")
+                                 )
+                            .when(func.to_date(df.data_visita, "yyyy-MM-dd HH:MM:SS").isNotNull(),
+                                 func.date_format(func.to_date(df.data_visita, "yyyy-MM-dd hh:mm:ss"), "yyyy-MM-dd hh:mm:ss")
+                                 )
+                            .otherwise(None)
+                            )\
+                .withColumn("data_visita", func.col("data_visita").cast(DateType()))
 
         df.printSchema()
         df.show(10, False)
@@ -1163,13 +1185,23 @@ def visitatori_visite_new(spark, sc, fileDirectory):
                 destinationDirectory)
 
         # i file letti vengono spostati nella cartella processed
-        Utilities.move_input_file(moveDirectory, fileDirectory, df)
+        #Utilities.move_input_file(moveDirectory, fileDirectory, df)
 
 
     else:
         print("Non ci sono opere in "+fileDirectory)
 
 
+""".withColumn("timestamp_visita",
+            when(func.to_timestamp(df.data_visita, "yyyy-MM-dd").isNotNull(),
+                 func.to_timestamp(df.data_visita, "yyyy-MM-dd"
+                                   ))
+            .when(func.to_timestamp(df.data_visita, "yyyy-MM-dd hh:mm:ss").isNotNull(),
+                  func.to_timestamp(df.data_visita, "yyyy-MM-dd hh:mm:ss"
+                                    ))
+            .otherwise(None)
+            )\
+.withColumn("timestamp_visita", func.col("timestamp_visita").cast(TimestampType()))"""
 
 """
 la funzione serve ad identificare le sottocartelle (fonti) di raw/visitatori/visite/ ed eseguire la funzione
@@ -1200,6 +1232,9 @@ def main():
         appName("CMS"). \
         enableHiveSupport(). \
         getOrCreate()
+
+    #spark.sql("set spark.sql.legacy.timeParserPolicy=LEGACY")
+    spark.sql("set spark.sql.legacy.timeParserPolicy=CORRECTED")
 
     valore = input("Standardized -> Curated\n"
                    "Seleziona un'opzione:\n"
