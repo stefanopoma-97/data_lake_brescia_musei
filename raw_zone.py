@@ -524,13 +524,6 @@ def autori_sottocartelle(spark, sc):
 
 
 
-"""
-Vengono lette tutte le immagini (da file.jpeg) nella cartella raw/opere/immagini/
-Struttura del nome file: NOME-ID OPERA.jpeg
-
-Nel DataFrame viene salvato il path, l'id dell'opera associata, il titolo e la data di creazione del file
-"""
-#TODO gestire svariati altri formati per poi convertire tutto in jpeg
 def opere_immagini(spark, sc):
     print("inizio a spostare le immagini da Raw a Standardized")
     fileDirectory = 'raw/opere/immagini/'
@@ -578,6 +571,13 @@ def opere_immagini(spark, sc):
     else:
         print("Non ci sono immagini nella Raw one")
 
+"""
+Vengono lette tutte le immagini (da file.jpeg) nella cartella raw/opere/immagini/
+Struttura del nome file: NOME-ID OPERA.jpeg
+
+Nel DataFrame viene salvato il path, l'id dell'opera associata, il titolo e la data di creazione del file
+"""
+#TODO gestire svariati altri formati per poi convertire tutto in jpeg
 def opere_immagini_new(spark, sc, fileDirectory):
     print("inizio a spostare gli autori da Raw a Standardized: "+fileDirectory)
     #fileDirectory = 'raw/opere/lista/'
@@ -640,16 +640,7 @@ def immagini_sottocartelle(spark, sc):
         opere_immagini_new(spark, sc, c)
 
 
-"""
-Vengono lette tutte le categorie (da file.csv) nella cartella raw/visitatori/categorie/
-Struttura del nome file: ID;Nome categoria,ETA MIN-ETA MAX
 
-La fascia di età viene spostata in due colonne distinte: eta_min e eta_max
-Viene derivata la data di creazione
-"""
-#TODO le categorie ora sono solo legate alla fascia di età, si possono inserire altri criteri
-#TODO servirebbe un campo per identficare la tipologia di categoria (Età, Sesso ecc.)
-#TODO anche le lavorazioni nella standardized zone andrebbero modificate di conseguenza
 def visitatori_categorie(spark, sc):
     print("inizio a spostare le categorie da Raw a Standardized")
 
@@ -696,14 +687,135 @@ def visitatori_categorie(spark, sc):
         print("Non ci sono categorie nella Raw Zone")
 
 """
-Vengono lette tutti i visitatori (da file.csv) nella cartella raw/visitatori/elenco/
-Struttura del nome file: ID;Nome;Cognome;Sesso;Età
+Vengono lette tutte le categorie (da file.csv) nella cartella raw/visitatori/categorie/
+Struttura del nome file: ID;Nome categoria,ETA MIN-ETA MAX
 
-Nome, Cognome e Sesso vengono messi con la prima lettera maiuscola
-Viene derivata la data di creazione del file
+La fascia di età viene spostata in due colonne distinte: eta_min e eta_max
+Viene derivata la data di creazione
 """
-#TODO possibilità di aggiungere altre informazioni associate ad un visitatore
-#TODO possibile controllo che l'età sia scritta correttamente
+#TODO le categorie ora sono solo legate alla fascia di età, si possono inserire altri criteri
+#TODO servirebbe un campo per identficare la tipologia di categoria (Età, Sesso ecc.)
+#TODO anche le lavorazioni nella standardized zone andrebbero modificate di conseguenza
+def visitatori_categorie_new(spark, sc, fileDirectory):
+    print("inizio a spostare le categorie da Raw a Standardized: "+fileDirectory)
+    #fileDirectory = 'raw/opere/lista/'
+    moveDirectory = fileDirectory + "processed/"
+    destinationDirectory = 'standardized/visitatori/categorie/'
+
+
+    if (Utilities.check_csv_files(fileDirectory)):
+
+        #legge tutti i file nella directory
+        df = spark.read\
+            .option("mergeSchema", "true")\
+            .option("delimiter", ";")\
+            .option("inferSchema", "false") \
+            .option("header", "true") \
+            .csv(fileDirectory)
+
+        #id,nome_categoria,fascia_età
+
+        #le colonne vengono messe in minuscolo e senza spazi, / o _
+        for column in df.columns:
+            new_column = column.replace(' ', '').replace('/', '').replace('_', '')
+            df = df.withColumnRenamed(column, new_column.lower())
+
+
+
+        #id;tagid;titolo;tipologia;anno;secolo;provenienza;autore;data_creazione;nome_file;fonte
+
+        #Cambio ID
+        possibili_id = []
+        for valore in possibili_id:
+            if valore in df.columns:
+                df = df.withColumnRenamed(valore, "id")
+        if 'id' not in df.columns:
+            df = df.withColumn('id', lit(None).cast("string"))
+
+        # Cambio Nome Categorie
+        possibili_id = ["nome","categoria","nomedellacategoria","nomecategoria"]
+        for valore in possibili_id:
+            if valore in df.columns:
+                df = df.withColumnRenamed(valore, "nome_categoria")
+        if 'nome_categoria' not in df.columns:
+            df = df.withColumn('nome_categoria', lit(None).cast("string"))
+
+        # Cambio fascia_eta
+        possibili_id = ["eta","fascia","fasciadieta"]
+        for valore in possibili_id:
+            if valore in df.columns:
+                df = df.withColumnRenamed(valore, "fascia_eta")
+        if 'fascia_eta' not in df.columns:
+            df = df.withColumn('fascia_eta', lit(None).cast("string"))
+
+
+        #cast e ordinamento colonne
+        df = df.alias("df").select(
+            func.col("id"),
+            func.col("nome_categoria"),
+            func.col("fascia_eta")
+        )
+
+
+
+        udfModificationDate = udf(Utilities.modificationDate)
+        udfFilePath = udf(Utilities.filePath)
+        udfSourceFile = udf(Utilities.filePathInProcessed)
+        udfFonte = udf(Utilities.filePathFonte)
+        udfEtaMin = udf(Utilities.getEtaMin)
+        udfEtaMax = udf(Utilities.getEtaMax)
+
+
+
+        # modifica del dataframe (inserita la data, il secolo e sistemato il campo autore)
+        df = df.withColumn("input_file", udfFilePath(input_file_name())) \
+                .withColumn("source_file", udfSourceFile(input_file_name()))\
+                .withColumn("data_creazione", to_timestamp(from_unixtime(udfModificationDate(func.col("input_file"))))) \
+                .withColumn("fonte", udfFonte(input_file_name())) \
+                .withColumn("nome_categoria",
+                            when(func.col("nome_categoria").isNotNull(),initcap("nome_categoria"))
+                            )\
+                .withColumn("eta_min",
+                            when(func.col("fascia_eta").isNotNull(), udfEtaMin(func.col("fascia_eta")))
+                            ) \
+                .withColumn("eta_max",
+                            when(func.col("fascia_eta").isNotNull(), udfEtaMax(func.col("fascia_eta")))
+                            )
+
+        df.printSchema()
+        df.show(10, False)
+
+        # salvataggio del DataFrame (solo se contiene informazioni)
+        os.makedirs(destinationDirectory, exist_ok=True)
+        if (df.count() > 0):
+            df.drop("input_file","fascia_eta").write.mode("append").option("header", "true").option("delimiter", ";").csv(
+                destinationDirectory)
+
+        # i file letti vengono spostati nella cartella processed
+        Utilities.move_input_file(moveDirectory, fileDirectory, df)
+
+
+    else:
+        print("Non ci sono opere in "+fileDirectory)
+
+
+
+"""
+la funzione serve ad identificare le sottocartelle (fonti) di raw/visitatori/categorie/ ed eseguire la funzione
+visitatori_categorie_new() su ognuna delle sottocartelle trovate
+"""
+def categorie_sottocartelle(spark, sc):
+    print("Controllo le sottocartelle di raw/visitatori/categorie/")
+    fileDirectory = 'raw/visitatori/categorie/'
+
+    cartelle = Utilities.check_sub_folder(fileDirectory)
+
+    for c in cartelle:
+        print("Sottocartelle: "+c)
+        visitatori_categorie_new(spark, sc, c)
+
+
+
 def visitatori_elenco(spark, sc):
     print("inizio a spostare i visitatori da Raw a Standardized")
 
@@ -746,6 +858,151 @@ def visitatori_elenco(spark, sc):
 
     else:
         print("Non ci sono visitatori nella Raw Zone")
+
+"""
+la funzione serve ad identificare le sottocartelle (fonti) di raw/visitatori/elenco/ ed eseguire la funzione
+visitatori_elenco_new() su ognuna delle sottocartelle trovate
+"""
+def visitatori_sottocartelle(spark, sc):
+    print("Controllo le sottocartelle di raw/visitatori/elenco/")
+    fileDirectory = 'raw/visitatori/elenco/'
+
+    cartelle = Utilities.check_sub_folder(fileDirectory)
+
+    for c in cartelle:
+        print("Sottocartelle: "+c)
+        visitatori_elenco_new(spark, sc, c)
+
+"""
+Vengono lette tutti i visitatori (da file.csv) nella cartella raw/visitatori/elenco/
+Struttura del nome file: ID;Nome;Cognome;Sesso;Età
+
+Nome, Cognome e Sesso vengono messi con la prima lettera maiuscola
+Viene derivata la data di creazione del file
+"""
+#TODO possibilità di aggiungere altre informazioni associate ad un visitatore
+#TODO possibile controllo che l'età sia scritta correttamente
+def visitatori_elenco_new(spark, sc, fileDirectory):
+    print("inizio a spostare i visitatori da Raw a Standardized: "+fileDirectory)
+    #fileDirectory = 'raw/opere/lista/'
+    moveDirectory = fileDirectory + "processed/"
+    destinationDirectory = 'standardized/visitatori/elenco/'
+
+
+    if (Utilities.check_csv_files(fileDirectory)):
+
+        #legge tutti i file nella directory
+        df = spark.read\
+            .option("mergeSchema", "true")\
+            .option("delimiter", ";")\
+            .option("inferSchema", "false") \
+            .option("header", "true") \
+            .csv(fileDirectory)
+
+        #id,nome_categoria,fascia_età
+
+        #le colonne vengono messe in minuscolo e senza spazi, / o _
+        for column in df.columns:
+            new_column = column.replace(' ', '').replace('/', '').replace('_', '')
+            df = df.withColumnRenamed(column, new_column.lower())
+
+
+
+        #ID;Nome;Cognome;Sesso;Età
+
+        #Cambio ID
+        possibili_id = []
+        for valore in possibili_id:
+            if valore in df.columns:
+                df = df.withColumnRenamed(valore, "id")
+        if 'id' not in df.columns:
+            df = df.withColumn('id', lit(None).cast("string"))
+
+        # Cambio Nome
+        possibili_id = ["nomevisitatore","visitatore"]
+        for valore in possibili_id:
+            if valore in df.columns:
+                df = df.withColumnRenamed(valore, "nome")
+        if 'nome' not in df.columns:
+            df = df.withColumn('nome', lit(None).cast("string"))
+
+        # Cambio cognome
+        possibili_id = []
+        for valore in possibili_id:
+            if valore in df.columns:
+                df = df.withColumnRenamed(valore, "cognome")
+        if 'cognome' not in df.columns:
+            df = df.withColumn('cognome', lit(None).cast("string"))
+
+        # Cambio cognome
+        possibili_id = []
+        for valore in possibili_id:
+            if valore in df.columns:
+                df = df.withColumnRenamed(valore, "sesso")
+        if 'sesso' not in df.columns:
+            df = df.withColumn('sesso', lit(None).cast("string"))
+
+        # Cambio età
+        possibili_id = ["eta","anni"]
+        for valore in possibili_id:
+            if valore in df.columns:
+                df = df.withColumnRenamed(valore, "età")
+        if 'età' not in df.columns:
+            df = df.withColumn('età', lit(None).cast("int"))
+
+
+        #cast e ordinamento colonne
+        df = df.alias("df").select(
+            func.col("id"),
+            func.col("nome"),
+            func.col("cognome"),
+            func.col("sesso"),
+            func.col("età").cast("int")
+        )
+
+
+
+        udfModificationDate = udf(Utilities.modificationDate)
+        udfFilePath = udf(Utilities.filePath)
+        udfSourceFile = udf(Utilities.filePathInProcessed)
+        udfFonte = udf(Utilities.filePathFonte)
+        udfSesso = udf(Utilities.checkSesso)
+
+
+
+        # modifica del dataframe (inserita la data, il secolo e sistemato il campo autore)
+        df = df.withColumn("input_file", udfFilePath(input_file_name())) \
+                .withColumn("source_file", udfSourceFile(input_file_name()))\
+                .withColumn("data_creazione", to_timestamp(from_unixtime(udfModificationDate(func.col("input_file"))))) \
+                .withColumn("fonte", udfFonte(input_file_name())) \
+                .withColumn("nome",
+                            when(func.col("nome").isNotNull(),initcap("nome"))
+                            ) \
+                .withColumn("cognome",
+                            when(func.col("cognome").isNotNull(), initcap("cognome"))
+                            ) \
+            .withColumn("sesso",
+                            when(func.col("sesso").isNotNull(), udfSesso(func.col("sesso")))
+                            )
+
+        df.printSchema()
+        df.show(10, False)
+
+        # salvataggio del DataFrame (solo se contiene informazioni)
+        os.makedirs(destinationDirectory, exist_ok=True)
+        if (df.count() > 0):
+            df.drop("input_file","fascia_eta").write.mode("append").option("header", "true").option("delimiter", ";").csv(
+                destinationDirectory)
+
+        # i file letti vengono spostati nella cartella processed
+        Utilities.move_input_file(moveDirectory, fileDirectory, df)
+
+
+    else:
+        print("Non ci sono opere in "+fileDirectory)
+
+
+
 """
 Vengono lette tutte le visite (da file.csv) nella cartella raw/visitatori/visite/
 Struttura del nome file: ID;Visitatore ID;Opera ID;Durata;Timestamp
@@ -818,7 +1075,6 @@ def main():
                    "5) Categorie\n"
                    "6) Visitatori\n"
                    "7) Visite\n"
-                   "8) Opere (NEW)\n"
                    "0) Tutti\n")
 
     if (valore == '1'):
@@ -830,9 +1086,9 @@ def main():
     elif (valore == '4'):
         immagini_sottocartelle(spark, sc)
     elif (valore == "5"):
-        visitatori_categorie(spark, sc)
+        categorie_sottocartelle(spark,sc)
     elif (valore == '6'):
-        visitatori_elenco(spark, sc)
+        visitatori_sottocartelle(spark, sc)
     elif (valore == '7'):
         visitatori_visite(spark, sc)
     elif (valore == '0'):

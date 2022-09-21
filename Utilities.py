@@ -17,13 +17,19 @@ def getEtaMin(nome):
     if nome == None:
         return nome
     else:
-        return nome.split("-")[0]
+        if (nome.__contains__("-")):
+            return nome.split("-")[0]
+        else:
+            return None
 
 def getEtaMax(nome):
     if nome == None:
         return nome
     else:
-        return nome.split("-")[1]
+        if (nome.__contains__("-")):
+            return nome.split("-")[1]
+        else:
+            return None
 
 def getTitoloFromFile(nome):
     s = nome.replace("%20", " ")
@@ -66,6 +72,22 @@ def filePathFonte(origin):
     s = s.replace("//", "")
     array = s.split("/")
     return array[-2]
+
+def checkSesso(s):
+    s = s.upper()
+    replace_f = ["W","DONNA","WOMEN","FEMMINA"]
+    replace_u = ["MASCHIO", "MEN", "UOMO"]
+    for r in replace_f:
+        s = s.replace(r, "F")
+    for r in replace_u:
+        s = s.replace(r, "M")
+
+
+    if len(s)==1:
+        if s=="M" or s=="F":
+            return s
+    return None
+
 
 def filePathInProcessedNew(origin):
     s = origin.replace("%20", " ")
