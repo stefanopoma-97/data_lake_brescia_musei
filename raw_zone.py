@@ -242,17 +242,7 @@ def opere_lista_new(spark, sc, fileDirectory):
     else:
         print("Non ci sono opere in "+fileDirectory)
 
-"""
 
-Vengono lette tutte le descrizioni (da file.txt) nella cartella raw/opere/descrizioni/
-Struttura: testo qualsiasi
-Il nome del file .txt deve essere del tipo "nome-ID OPERA.txt"
-
-Viene creato un dataframe contenente id_opera, titolo_opera, descrizione, data_creazione
-
-I file processati vengono inseriti nella sotto-cartella processed, in modo che non vengano analizzati due volte
-
-"""
 def opere_descrizioni(spark, sc):
     print("inizio a spostare le descrizioni da Raw a Standardized")
     fileDirectory = 'raw/opere/descrizioni/'
@@ -297,8 +287,19 @@ def opere_descrizioni(spark, sc):
     else:
         print("Non ci sono descrizioni nella Raw Zone")
 
+"""
+
+Vengono lette tutte le descrizioni (da file.txt) nella cartella raw/opere/descrizioni/
+Struttura: testo qualsiasi
+Il nome del file .txt deve essere del tipo "nome-ID OPERA.txt"
+
+Viene creato un dataframe contenente id_opera, titolo_opera, descrizione, data_creazione
+
+I file processati vengono inseriti nella sotto-cartella processed, in modo che non vengano analizzati due volte
+
+"""
 def opere_descrizioni_new(spark, sc, fileDirectory):
-    print("inizio a spostare le opere da Raw a Standardized: "+fileDirectory)
+    print("inizio a spostare le descrizioni da Raw a Standardized: "+fileDirectory)
     #fileDirectory = 'raw/opere/lista/'
     moveDirectory = fileDirectory + "processed/"
     destinationDirectory = 'standardized/opere/descrizioni/'
@@ -351,8 +352,8 @@ def opere_descrizioni_new(spark, sc, fileDirectory):
 
 
 """
-la funzione serve ad identificare le sottocartelle (fonti) di raw/opere/lista ed eseguire la funzione
-opere_lista_new() su ognuna delle sottocartelle trovate
+la funzione serve ad identificare le sottocartelle (fonti) di raw/opere/descrizioni ed eseguire la funzione
+opere_descrizioni_new() su ognuna delle sottocartelle trovate
 """
 def descrizioni_sottocartelle(spark, sc):
     print("Controllo le sottocartelle di raw/opere/descrizioni")
@@ -411,6 +412,117 @@ def opere_autori(spark, sc):
 
     else:
         print("Non ci sono autori nella Raw Zone")
+
+def opere_autori_new(spark, sc, fileDirectory):
+    print("inizio a spostare gli autori da Raw a Standardized: "+fileDirectory)
+    #fileDirectory = 'raw/opere/lista/'
+    moveDirectory = fileDirectory + "processed/"
+    destinationDirectory = 'standardized/opere/autori/'
+
+
+    if (Utilities.check_csv_files(fileDirectory)):
+
+        #legge tutti i file nella directory
+        df = spark.read\
+            .option("mergeSchema", "true")\
+            .option("delimiter", ";")\
+            .option("inferSchema", "false") \
+            .option("header", "true") \
+            .csv(fileDirectory)
+
+
+        #le colonne vengono messe in minuscolo e senza spazi, / o _
+        for column in df.columns:
+            new_column = column.replace(' ', '').replace('/', '').replace('_', '')
+            df = df.withColumnRenamed(column, new_column.lower())
+
+
+
+        #id;tagid;titolo;tipologia;anno;secolo;provenienza;autore;data_creazione;nome_file;fonte
+
+        #Cambio ID
+        possibili_id = []
+        for valore in possibili_id:
+            if valore in df.columns:
+                df = df.withColumnRenamed(valore, "id")
+        if 'id' not in df.columns:
+            df = df.withColumn('id', lit(None).cast("string"))
+
+        # Cambio Nome
+        possibili_id = ["auotore","nomecognome","nomeecognome"]
+        for valore in possibili_id:
+            if valore in df.columns:
+                df = df.withColumnRenamed(valore, "nome")
+        if 'nome' not in df.columns:
+            df = df.withColumn('nome', lit(None).cast("string"))
+
+        # Cambio anno_nascita
+        possibili_id = ["anno","data","nasciata","annodinascita","datadinascita"]
+        for valore in possibili_id:
+            if valore in df.columns:
+                df = df.withColumnRenamed(valore, "anno_nascita")
+        if 'anno_nascita' not in df.columns:
+            df = df.withColumn('anno_nascita', lit(None).cast("int"))
+
+
+        #cast e ordinamento colonne
+        df = df.alias("df").select(
+            func.col("id"),
+            func.col("nome"),
+            func.col("anno_nascita").cast("int"),
+        )
+
+
+
+        udfModificationDate = udf(Utilities.modificationDate)
+        udfFilePath = udf(Utilities.filePath)
+        udfSourceFile = udf(Utilities.filePathInProcessed)
+        udfFonte = udf(Utilities.filePathFonte)
+
+
+
+        # modifica del dataframe (inserita la data, il secolo e sistemato il campo autore)
+        df = df.withColumn("input_file", udfFilePath(input_file_name())) \
+                .withColumn("source_file", udfSourceFile(input_file_name()))\
+                .withColumn("data_creazione", to_timestamp(from_unixtime(udfModificationDate(func.col("input_file"))))) \
+                .withColumn("fonte", udfFonte(input_file_name())) \
+                .withColumn("nome",
+                            when(func.col("nome").isNotNull(),initcap("nome"))
+                            )
+
+        df.printSchema()
+        df.show(10, False)
+
+        # salvataggio del DataFrame (solo se contiene informazioni)
+        os.makedirs(destinationDirectory, exist_ok=True)
+        if (df.count() > 0):
+            df.drop("input_file").write.mode("append").option("header", "true").option("delimiter", ";").csv(
+                destinationDirectory)
+
+        # i file letti vengono spostati nella cartella processed
+        Utilities.move_input_file(moveDirectory, fileDirectory, df)
+
+
+    else:
+        print("Non ci sono opere in "+fileDirectory)
+
+
+"""
+la funzione serve ad identificare le sottocartelle (fonti) di raw/opere/descrizioni ed eseguire la funzione
+opere_descrizioni_new() su ognuna delle sottocartelle trovate
+"""
+def autori_sottocartelle(spark, sc):
+    print("Controllo le sottocartelle di raw/opere/autori")
+    fileDirectory = 'raw/opere/autori/'
+
+    cartelle = Utilities.check_sub_folder(fileDirectory)
+
+    for c in cartelle:
+        print("Sottocartelle: "+c)
+        opere_autori_new(spark, sc, c)
+
+
+
 """
 Vengono lette tutte le immagini (da file.jpeg) nella cartella raw/opere/immagini/
 Struttura del nome file: NOME-ID OPERA.jpeg
@@ -651,7 +763,7 @@ def main():
     elif (valore == '2'):
         descrizioni_sottocartelle(spark, sc)
     elif (valore == '3'):
-        opere_autori(spark, sc)
+        autori_sottocartelle(spark, sc)
     elif (valore == '4'):
         opere_immagini(spark, sc)
     elif (valore == "5"):
