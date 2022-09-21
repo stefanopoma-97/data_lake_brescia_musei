@@ -366,14 +366,7 @@ def descrizioni_sottocartelle(spark, sc):
         opere_descrizioni_new(spark, sc, c)
 
 
-"""
-Vengono lette tutti gli autori (da file.csv) nella cartella raw/opere/autori/
-Struttura: ID;Nome e cognome;Anno di nascita
 
-Il nome viene messo con le maiuscole, viene ricavata la data di creazione del file
-I file processati vengono inseriti nella sotto-cartella processed, in modo che non vengano analizzati due volte
-"""
-#TODO possibilità di spezzare i campi nome e cognome
 def opere_autori(spark, sc):
     print("inizio a spostare gli autori da Raw a Standardized")
     fileDirectory = 'raw/opere/autori/'
@@ -413,6 +406,14 @@ def opere_autori(spark, sc):
     else:
         print("Non ci sono autori nella Raw Zone")
 
+"""
+Vengono lette tutti gli autori (da file.csv) nella cartella raw/opere/autori/
+Struttura: ID;Nome e cognome;Anno di nascita
+
+Il nome viene messo con le maiuscole, viene ricavata la data di creazione del file
+I file processati vengono inseriti nella sotto-cartella processed, in modo che non vengano analizzati due volte
+"""
+#TODO possibilità di spezzare i campi nome e cognome
 def opere_autori_new(spark, sc, fileDirectory):
     print("inizio a spostare gli autori da Raw a Standardized: "+fileDirectory)
     #fileDirectory = 'raw/opere/lista/'
@@ -576,6 +577,68 @@ def opere_immagini(spark, sc):
 
     else:
         print("Non ci sono immagini nella Raw one")
+
+def opere_immagini_new(spark, sc, fileDirectory):
+    print("inizio a spostare gli autori da Raw a Standardized: "+fileDirectory)
+    #fileDirectory = 'raw/opere/lista/'
+    moveDirectory = fileDirectory + "processed/"
+    destinationDirectory = 'standardized/opere/immagini/'
+
+
+    if (Utilities.check_jpeg_files(fileDirectory)):
+
+        udfModificationDate = udf(Utilities.modificationDate)
+        udfFilePath = udf(Utilities.filePath)
+        udfFilePathInProcessed = udf(Utilities.filePathInProcessed)
+        udfGetID = udf(Utilities.getIDFromFile)
+        udfGetTitolo = udf(Utilities.getTitoloFromFile)
+        udfSourceFile = udf(Utilities.filePathInProcessed)
+        udfFonte = udf(Utilities.filePathFonte)
+
+        schema = StructType([ \
+            StructField("input_file", StringType(), True),
+            StructField("immagine", StringType(), True)])
+
+        # legge tutti i file nella directory
+        rdd = sc.wholeTextFiles(fileDirectory)
+        df1 = spark.createDataFrame(rdd, schema)
+        df = df1.withColumn("input_file", udfFilePath(func.col("input_file")))
+        # df.show()
+
+        df = df.withColumn("id_opera", udfGetID(func.substring_index(func.col("input_file"), "/", -1))) \
+            .withColumn("titolo_opera", initcap(udfGetTitolo(func.substring_index(func.col("input_file"), "/", -1)))) \
+            .withColumn("input_file", udfFilePath(func.col("input_file"))) \
+            .withColumn("source_file", udfSourceFile(func.col("input_file"))) \
+            .withColumn("fonte", udfFonte(func.col("input_file"))) \
+            .withColumn("data_creazione", to_timestamp(from_unixtime(udfModificationDate(func.col("input_file")))))
+        df.drop("immagine").show(10, False)
+
+        if (df.count() > 0):
+            df.drop("input_file","immagine").write.mode("append").option("header", "true").option("delimiter", ";").csv(
+                destinationDirectory)
+
+        # salvataggio del DataFrame (solo se contiene informazioni)
+        Utilities.move_input_file_from_df(moveDirectory, fileDirectory, df)
+
+
+
+    else:
+        print("Non ci sono opere in "+fileDirectory)
+
+"""
+la funzione serve ad identificare le sottocartelle (fonti) di raw/opere/immagini ed eseguire la funzione
+opere_immagini_new() su ognuna delle sottocartelle trovate
+"""
+def immagini_sottocartelle(spark, sc):
+    print("Controllo le sottocartelle di raw/opere/immagini")
+    fileDirectory = 'raw/opere/immagini/'
+
+    cartelle = Utilities.check_sub_folder(fileDirectory)
+
+    for c in cartelle:
+        print("Sottocartelle: "+c)
+        opere_immagini_new(spark, sc, c)
+
 
 """
 Vengono lette tutte le categorie (da file.csv) nella cartella raw/visitatori/categorie/
@@ -765,7 +828,7 @@ def main():
     elif (valore == '3'):
         autori_sottocartelle(spark, sc)
     elif (valore == '4'):
-        opere_immagini(spark, sc)
+        immagini_sottocartelle(spark, sc)
     elif (valore == "5"):
         visitatori_categorie(spark, sc)
     elif (valore == '6'):
