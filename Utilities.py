@@ -11,11 +11,7 @@ def modificationDate(file):
 def centuryFromYear(year):
     return math.ceil(year/100)
 
-"nome%file-id.txt"
-def getIDFromFile(nome):
-    s = nome.replace("%", " ")
-    s = s.split("-")[-1].split(".")[0]
-    return s
+
 "10-24"
 def getEtaMin(nome):
     if nome == None:
@@ -31,8 +27,18 @@ def getEtaMax(nome):
 
 def getTitoloFromFile(nome):
     s = nome.replace("%20", " ")
-    s = s.split("-")[0]
-    return s
+    if (s.__contains__("-")):
+        return s.split("-")[0]
+    else:
+        return None
+
+"nome%file-id.txt"
+def getIDFromFile(nome):
+    s = nome.replace("%20", " ")
+    if (s.__contains__("-")):
+        return s.split("-")[-1].split(".")[0]
+    else:
+        return s.split(".")[0]
 
 def recreateSpace(origin):
     s = origin.replace("%20", " ")

@@ -25,8 +25,6 @@ Viene inoltre ricavata la data di creazione dal timestamp
 
 I file processati vengono inseriti nella sotto-cartella processed, in modo che non vengano analizzati due volte
 """
-#TODO possibile gestire la data di creazione anche in assenza del timestamp o se il timestamp da dei risultati non realistici
-#TODO null in anno
 def opere_lista(spark):
     print("inizio a spostare le opere da Raw a Standardized")
     fileDirectory = 'raw/opere/lista/'
@@ -101,8 +99,6 @@ Viene inoltre ricavata la data di creazione dal timestamp.
 
 I file processati vengono inseriti nella sotto-cartella processed, in modo che non vengano analizzati due volte
 """
-#TODO possibile gestire la data di creazione anche in assenza del timestamp o se il timestamp da dei risultati non realistici
-#TODO null in anno
 def opere_lista_new(spark, sc, fileDirectory):
     print("inizio a spostare le opere da Raw a Standardized: "+fileDirectory)
     #fileDirectory = 'raw/opere/lista/'
@@ -257,7 +253,6 @@ Viene creato un dataframe contenente id_opera, titolo_opera, descrizione, data_c
 I file processati vengono inseriti nella sotto-cartella processed, in modo che non vengano analizzati due volte
 
 """
-#TODO gestire file anche con nomi del tipo ID.txt
 def opere_descrizioni(spark, sc):
     print("inizio a spostare le descrizioni da Raw a Standardized")
     fileDirectory = 'raw/opere/descrizioni/'
@@ -301,6 +296,74 @@ def opere_descrizioni(spark, sc):
 
     else:
         print("Non ci sono descrizioni nella Raw Zone")
+
+def opere_descrizioni_new(spark, sc, fileDirectory):
+    print("inizio a spostare le opere da Raw a Standardized: "+fileDirectory)
+    #fileDirectory = 'raw/opere/lista/'
+    moveDirectory = fileDirectory + "processed/"
+    destinationDirectory = 'standardized/opere/descrizioni/'
+
+
+    if (Utilities.check_txt_files(fileDirectory)):
+
+        # schema del csv
+        schema = StructType([ \
+            StructField("input_file", StringType(), True),
+            StructField("descrizione", StringType(), True)])
+
+        # legge tutti i file nella directory
+        rdd = sc.wholeTextFiles(fileDirectory)
+        df = spark.createDataFrame(rdd, schema)
+        # df.show()
+
+        udfGetID = udf(Utilities.getIDFromFile)
+        udfModificationDate = udf(Utilities.modificationDate)
+        udfGetTitolo = udf(Utilities.getTitoloFromFile)
+        udfFilePath = udf(Utilities.filePath)
+        udfSourceFile = udf(Utilities.filePathInProcessed)
+        udfFonte = udf(Utilities.filePathFonte)
+
+        df = df.withColumn("id_opera", udfGetID(func.substring_index(func.col("input_file"), "/", -1))) \
+            .withColumn("titolo_opera", initcap(udfGetTitolo(func.substring_index(func.col("input_file"), "/", -1)))) \
+            .withColumn("input_file", udfFilePath(func.col("input_file"))) \
+            .withColumn("source_file", udfSourceFile(func.col("input_file"))) \
+            .withColumn("fonte", udfFonte(func.col("input_file")))\
+            .withColumn("data_creazione", to_timestamp(from_unixtime(udfModificationDate(func.col("input_file")))))
+
+        # df.printSchema()
+        print("Descrizioni lette")
+        df.show(10, False)
+
+        # salvataggio del DataFrame (solo se contiene informazioni)
+        os.makedirs(destinationDirectory, exist_ok=True)
+        if (df.count() > 0):
+            df.drop("input_file").write.mode("append").option("header",
+                                                                                                               "true").option(
+                "delimiter", ";").csv(destinationDirectory)
+
+        Utilities.move_input_file_from_df(moveDirectory, fileDirectory, df)
+
+
+
+
+    else:
+        print("Non ci sono opere in "+fileDirectory)
+
+
+"""
+la funzione serve ad identificare le sottocartelle (fonti) di raw/opere/lista ed eseguire la funzione
+opere_lista_new() su ognuna delle sottocartelle trovate
+"""
+def descrizioni_sottocartelle(spark, sc):
+    print("Controllo le sottocartelle di raw/opere/descrizioni")
+    fileDirectory = 'raw/opere/descrizioni/'
+
+    cartelle = Utilities.check_sub_folder(fileDirectory)
+
+    for c in cartelle:
+        print("Sottocartelle: "+c)
+        opere_descrizioni_new(spark, sc, c)
+
 
 """
 Vengono lette tutti gli autori (da file.csv) nella cartella raw/opere/autori/
@@ -586,7 +649,7 @@ def main():
     if (valore == '1'):
         opere_sottocartelle(spark, sc)
     elif (valore == '2'):
-        opere_descrizioni(spark, sc)
+        descrizioni_sottocartelle(spark, sc)
     elif (valore == '3'):
         opere_autori(spark, sc)
     elif (valore == '4'):
