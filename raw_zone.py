@@ -69,6 +69,7 @@ def opere_lista(spark):
 
     else:
         print("Non ci sono opere nella Raw Zone")
+
 """
 la funzione serve ad identificare le sottocartelle (fonti) di raw/opere/lista ed eseguire la funzione
 opere_lista_new() su ognuna delle sottocartelle trovate
@@ -92,9 +93,8 @@ I file csv vengono confrontati con la struttura sopra riportata, colonne con un 
 Se alcune colonne non esistono nel file vengono create e i valori vengono impostati a null
 
 Dopo aver applicato lo schema vengono eseguite una serie di operazioni (controllando prima che il campo da processare non sia null):
-Viene aggiunto il secolo, gli autori sono messi con la prima lettera maiuscola, viene derivata la data dal timestamp
+Viene aggiunto il secolo, gli autori sono messi con la prima lettera maiuscola, viene derivata la data dal timestamp (o dalla data di crezione del file se il timestamp è null)
 Viene inserito l'header e il nuovo dataframe viene salvato nella standardized zone.
-Viene inoltre ricavata la data di creazione dal timestamp.
 
 
 I file processati vengono inseriti nella sotto-cartella processed, in modo che non vengano analizzati due volte
@@ -289,11 +289,11 @@ def opere_descrizioni(spark, sc):
 
 """
 
-Vengono lette tutte le descrizioni (da file.txt) nella cartella raw/opere/descrizioni/
+Vengono lette tutte le descrizioni (da file.txt) nella cartella raw/opere/descrizioni/sottocartells
 Struttura: testo qualsiasi
-Il nome del file .txt deve essere del tipo "nome-ID OPERA.txt"
+Il nome del file .txt deve essere del tipo "nome-ID OPERA.txt" o "ID.txt"
 
-Viene creato un dataframe contenente id_opera, titolo_opera, descrizione, data_creazione
+Viene creato un dataframe contenente id_opera, titolo_opera, descrizione, data_creazione, source_file, fonte
 
 I file processati vengono inseriti nella sotto-cartella processed, in modo che non vengano analizzati due volte
 
@@ -407,10 +407,12 @@ def opere_autori(spark, sc):
         print("Non ci sono autori nella Raw Zone")
 
 """
-Vengono lette tutti gli autori (da file.csv) nella cartella raw/opere/autori/
-Struttura: ID;Nome e cognome;Anno di nascita
+Vengono lette tutti gli autori (da file.csv) nella cartella raw/opere/autori/sottocartella
 
-Il nome viene messo con le maiuscole, viene ricavata la data di creazione del file
+Struttura: ID;Nome e cognome;Anno di nascita, source_file, data_creazione, fonte
+
+Il file viene letto e le colonne vengono rinominate (o create da zero) per adattarsi allo schema sopra riportato.
+Il nome viene messo con le maiuscole, viene ricavata la data di creazione del file, viene ricavato anche il path del file e il nome della fonte
 I file processati vengono inseriti nella sotto-cartella processed, in modo che non vengano analizzati due volte
 """
 #TODO possibilità di spezzare i campi nome e cognome
@@ -509,8 +511,8 @@ def opere_autori_new(spark, sc, fileDirectory):
 
 
 """
-la funzione serve ad identificare le sottocartelle (fonti) di raw/opere/descrizioni ed eseguire la funzione
-opere_descrizioni_new() su ognuna delle sottocartelle trovate
+la funzione serve ad identificare le sottocartelle (fonti) di raw/opere/autori ed eseguire la funzione
+opere_autori_new() su ognuna delle sottocartelle trovate
 """
 def autori_sottocartelle(spark, sc):
     print("Controllo le sottocartelle di raw/opere/autori")
@@ -572,10 +574,10 @@ def opere_immagini(spark, sc):
         print("Non ci sono immagini nella Raw one")
 
 """
-Vengono lette tutte le immagini (da file.jpeg) nella cartella raw/opere/immagini/
-Struttura del nome file: NOME-ID OPERA.jpeg
+Vengono lette tutte le immagini (da file.jpeg) nella cartella raw/opere/immagini/sottocartella
+Struttura del nome file: "NOME-ID OPERA.jpeg" o "ID.jpeg"
 
-Nel DataFrame viene salvato il path, l'id dell'opera associata, il titolo e la data di creazione del file
+Nel DataFrame viene salvato il path, l'id dell'opera associata, il titolo, la data di creazione del file, la fonte e il path del file 
 """
 #TODO gestire svariati altri formati per poi convertire tutto in jpeg
 def opere_immagini_new(spark, sc, fileDirectory):
@@ -687,10 +689,11 @@ def visitatori_categorie(spark, sc):
         print("Non ci sono categorie nella Raw Zone")
 
 """
-Vengono lette tutte le categorie (da file.csv) nella cartella raw/visitatori/categorie/
-Struttura del nome file: ID;Nome categoria,ETA MIN-ETA MAX
+Vengono lette tutte le categorie (da file.csv) nella cartella raw/visitatori/categorie/sottocartella
+Struttura file: id;nome_categoria,eta_min, eta_max, source_file, data_creazione
 
-La fascia di età viene spostata in due colonne distinte: eta_min e eta_max
+I file vengono letti e le colonne vengono rinominate o create da zero per adattarsi alla struttura sopra riportata
+La fascia di età viene spostata in due colonne distinte: eta_min e eta_max (a patto che non sia null)
 Viene derivata la data di creazione
 """
 #TODO le categorie ora sono solo legate alla fascia di età, si possono inserire altri criteri
@@ -875,10 +878,14 @@ def visitatori_sottocartelle(spark, sc):
 
 """
 Vengono lette tutti i visitatori (da file.csv) nella cartella raw/visitatori/elenco/
-Struttura del nome file: ID;Nome;Cognome;Sesso;Età
+Struttura del file: id;nome;cognome;sesso;età;source_file;data_creazione;fonte
+
+I file vengono letti e le colonne vengono rinominate o aggiunte per adattarsi allo schema sopra riportato
 
 Nome, Cognome e Sesso vengono messi con la prima lettera maiuscola
-Viene derivata la data di creazione del file
+Viene derivata la data di creazione del file, il file sorgente e la fonte
+
+La stringa del sesso viene convertita in M o F
 """
 #TODO possibilità di aggiungere altre informazioni associate ad un visitatore
 #TODO possibile controllo che l'età sia scritta correttamente
@@ -934,7 +941,7 @@ def visitatori_elenco_new(spark, sc, fileDirectory):
         if 'cognome' not in df.columns:
             df = df.withColumn('cognome', lit(None).cast("string"))
 
-        # Cambio cognome
+        # Cambio sesso
         possibili_id = []
         for valore in possibili_id:
             if valore in df.columns:
@@ -1003,7 +1010,6 @@ def visitatori_elenco_new(spark, sc, fileDirectory):
 
 
 
-
 def visitatori_visite(spark, sc):
     print("inizio a spostare le visite da Raw a Standardized")
 
@@ -1047,9 +1053,13 @@ def visitatori_visite(spark, sc):
 
 """
 Vengono lette tutte le visite (da file.csv) nella cartella raw/visitatori/visite/
-Struttura del nome file: ID;Visitatore ID;Opera ID;Durata;Timestamp
+Struttura del nome file: id;visitatore_id;opera_id;timestamp;durata;data_visita;timestamp_visita;source_file;fonte;data_creazione
 
-Il timestamp viene convertito in data
+i file vengono letti, le colonne vengono rinominate o create per adattarsi alla struttura sopra riportata
+Viene ricavato il file sorgente, la data di creazione del file e la fonte
+Dal paramentr data_visita (se presente) viene creata una colonna di campo DataType e una colonna di tipo Timestamp (contenente quindi anche ore, minuti e secondi)
+La stringa della data può essere scritta in diversi formati, la funzione la converte in un formato standard
+La durata viene inoltre convertita in secondi (anche in questo caso sono accettati vari formati diversi)
 """
 def visitatori_visite_new(spark, sc, fileDirectory):
     print("inizio a spostare le visite da Raw a Standardized: "+fileDirectory)
@@ -1224,21 +1234,6 @@ def visitatori_visite_new(spark, sc, fileDirectory):
         print("Non ci sono opere in "+fileDirectory)
 
 
-""".withColumn("timestamp_visita",
-            when(func.to_timestamp(df.data_visita, "yyyy-MM-dd").isNotNull(),
-                 func.to_timestamp(df.data_visita, "yyyy-MM-dd"
-                                   ))
-            .when(func.to_timestamp(df.data_visita, "yyyy-MM-dd hh:mm:ss").isNotNull(),
-                  func.to_timestamp(df.data_visita, "yyyy-MM-dd hh:mm:ss"
-                                    ))
-            .otherwise(None)
-            )\
-.withColumn("timestamp_visita", func.col("timestamp_visita").cast(TimestampType()))"""
-
-"""
-la funzione serve ad identificare le sottocartelle (fonti) di raw/visitatori/visite/ ed eseguire la funzione
-visitatori_visite_new() su ognuna delle sottocartelle trovate
-"""
 def visite_sottocartelle(spark, sc):
     print("Controllo le sottocartelle di raw/visitatori/visite/")
     fileDirectory = 'raw/visitatori/visite/'
@@ -1265,6 +1260,7 @@ def main():
         enableHiveSupport(). \
         getOrCreate()
 
+    #opzione per gestire il cast a data e timestamp
     spark.sql("set spark.sql.legacy.timeParserPolicy=LEGACY")
     #spark.sql("set spark.sql.legacy.timeParserPolicy=CORRECTED")
 
