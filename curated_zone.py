@@ -394,7 +394,7 @@ def write_neo4j(spark):
         .mode("overwrite") \
         .format("org.neo4j.spark.DataSource") \
         .option("url", "bolt://localhost:7687") \
-        .option("relationship", "IMMAGINI") \
+        .option("relationship", "MULTIMEDIA") \
         .option("relationship.save.strategy", "keys") \
         .option("relationship.source.labels", ":Opera") \
         .option("relationship.source.save.mode", "overwrite") \
