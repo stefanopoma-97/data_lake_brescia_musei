@@ -1,3 +1,0 @@
-id;nome;cognome;sesso;età;source_file;data_creazione;fonte
-123;Nome;Cognome;F;20;C:/stefano/Universita/Anno 5/Tesi e Stage/progetto cms brescia musei/data_lake_brescia_musei/raw/visitatori/elenco/fonte 1/processed/file.csv;2022-09-13T17:46:40.000+02:00;fonte 1
-125;Nome;Cognome;M;;C:/stefano/Universita/Anno 5/Tesi e Stage/progetto cms brescia musei/data_lake_brescia_musei/raw/visitatori/elenco/fonte 1/processed/file.csv;2022-09-13T17:46:40.000+02:00;fonte 1

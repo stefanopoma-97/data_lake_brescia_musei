@@ -953,9 +953,9 @@ def visitatori_elenco_new(spark, sc, fileDirectory):
         possibili_id = ["eta","anni"]
         for valore in possibili_id:
             if valore in df.columns:
-                df = df.withColumnRenamed(valore, "età")
-        if 'età' not in df.columns:
-            df = df.withColumn('età', lit(None).cast("int"))
+                df = df.withColumnRenamed(valore, "eta")
+        if 'eta' not in df.columns:
+            df = df.withColumn('eta', lit(None).cast("int"))
 
 
         #cast e ordinamento colonne
@@ -964,7 +964,7 @@ def visitatori_elenco_new(spark, sc, fileDirectory):
             func.col("nome"),
             func.col("cognome"),
             func.col("sesso"),
-            func.col("età").cast("int")
+            func.col("eta").cast("int")
         )
 
 

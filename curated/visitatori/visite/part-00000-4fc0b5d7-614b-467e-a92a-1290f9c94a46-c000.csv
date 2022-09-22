@@ -1,0 +1,4 @@
+id;visitatore_id;opera_id;timestamp;durata;data_visita;source_file;fonte;data_creazione;timestamp_visita
+223;122;1;1663084510;44175;2022-09-21T00:00:00.000+02:00;C:/stefano/Universita/Anno 5/Tesi e Stage/progetto cms brescia musei/data_lake_brescia_musei/raw/visitatori/visite/fonte 1/processed/file.csv;fonte 1;2022-09-13T17:55:10.000+02:00;2022-09-21T00:00:00.000+02:00
+224;123;3;1663084510;1035;2022-09-21T00:00:00.000+02:00;C:/stefano/Universita/Anno 5/Tesi e Stage/progetto cms brescia musei/data_lake_brescia_musei/raw/visitatori/visite/fonte 1/processed/file.csv;fonte 1;2022-09-13T17:55:10.000+02:00;2022-09-21T18:40:22.000+02:00
+225;125;1;1663084510;145;2022-09-21T00:00:00.000+02:00;C:/stefano/Universita/Anno 5/Tesi e Stage/progetto cms brescia musei/data_lake_brescia_musei/raw/visitatori/visite/fonte 1/processed/file.csv;fonte 1;2022-09-13T17:55:10.000+02:00;2022-09-21T18:40:22.000+02:00

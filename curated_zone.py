@@ -131,7 +131,7 @@ def get_opere(spark):
                   (func.col("opere.id") == func.col("immagini.id_opera")), \
                   "left"
                   ) \
-            .select(func.col("opere.id").alias("id"), func.col("immagini.input_file").alias("file"))\
+            .select(func.col("opere.id").alias("id"), func.col("immagini.source_file").alias("file"))\
             .groupBy("id").agg(func.collect_list("file").alias("file"))
 
         #print("join immagini")
@@ -345,7 +345,7 @@ def write_neo4j(spark):
         .format("org.neo4j.spark.DataSource") \
         .option("url", "bolt://localhost:7687") \
         .option("labels", ":Immagine") \
-        .option("node.keys", "input_file") \
+        .option("node.keys", "source_file") \
         .save()
 
     #creo nodo autore
@@ -400,7 +400,7 @@ def write_neo4j(spark):
         .option("relationship.source.save.mode", "overwrite") \
         .option("relationship.source.node.keys", "id") \
         .option("relationship.target.labels", ":Immagine") \
-        .option("relationship.target.node.keys", "immagini:input_file") \
+        .option("relationship.target.node.keys", "immagini:source_file") \
         .option("relationship.target.save.mode", "overwrite") \
         .save()
 
