@@ -12,7 +12,7 @@ from pyspark.sql import DataFrame
 from pyspark.sql import Row
 from pyspark.sql.functions import col, avg, to_date, from_unixtime, initcap, udf, desc, input_file_name
 from pyspark.sql import functions as func
-from pyspark.sql.types import StructType, StructField, StringType, IntegerType, FloatType, DateType, TimestampType
+from pyspark.sql.types import StructType, StructField, StringType, IntegerType, FloatType, DateType, TimestampType, ArrayType
 import os
 import shutil
 import sys
@@ -26,9 +26,9 @@ Dal dataframe vengono rimossi i duplicati.
 Il dataframe è unito con quello contenente le categorie già salvate nella curated
 Vengono mantenute le categorie inserite in una data più recente in caso di duplicati
 
-Si considerano duplicati due categorie con lo stesso ID
+Duplicati: categorie con stesso ID, viene mantenuta quella con data di creazione più recente
+Accettati: deve esserci almeno id e nome_categoria
 """
-#TODO in questa fase si potrebbero eslcudere tutte le categorie con dati mancanti (eta min e max o nome)
 def categoria_visitatori(spark):
     print("inizio a spostare le categorie da Standardized a Curated")
     fileDirectory = 'standardized/visitatori/categorie/'
@@ -38,9 +38,31 @@ def categoria_visitatori(spark):
     if (Utilities.check_csv_files(fileDirectory)):
         lista_categorie = spark.read.option("header", "true").option("inferSchema", "true").option("delimiter", ";").csv(
             fileDirectory)
+        #rimuovo categorie che non hanno id e nome_categoria
+        lista_categorie = lista_categorie.filter(func.col("id").isNotNull() & func.col("nome_categoria").isNotNull())
+        #rimuovo duplicati
         lista_categorie_no_duplicates = Utilities.drop_duplicates_row(lista_categorie, "data_creazione",["id"])
-        print("Categorie lette")
+        print("Categorie lette (rimossi duplicati e righe non accettabili")
         lista_categorie_no_duplicates.show()
+
+        """
+        Questo approccio consente di passare ad UDF gli array di contenenti tutte le righe associate ad uno stesso id
+        la funzione può elaborare come vuole queste informazioni e restituire una lista
+        la lista viene inserita in una nuova colonna
+        accedento df.colonna[i] si prendono i vari elmenti della lista e con withColumn li si inserisce sopra id, eta_mic ecc
+        alla fine per ogni id si ottiene una riga frutto dell'elaborazione della funzione UDF
+        """
+        """group = lista_categorie.alias("df").select("id",func.struct(["df.*"]).alias("newcol")).groupBy("id").agg(func.collect_list("newcol").alias("newcol"))
+        group.show(10, False)
+        udfCheckDuplicatiCategoria = udf(Utilities.check_categorie_duplicate, ArrayType(StringType()))
+        #udfCheckDuplicatiCategoria = udf(Utilities.check_categorie_duplicate, StructType())
+        group2 = group.withColumn("risultato", udfCheckDuplicatiCategoria(func.col("id"),func.col("newcol")))
+        group2.withColumn("colonna creata",group2.risultato[1]).show()
+        group2.printSchema()
+        group2.select(group2.risultato[0]).show()"""
+
+
+
 
         os.makedirs(destinationDirectory, exist_ok=True)
         if (Utilities.check_csv_files(destinationDirectory)):
@@ -48,7 +70,7 @@ def categoria_visitatori(spark):
             destinationDirectory)
             print("Categorie presenti nella curated")
             lista_categorie_salvate.show()
-            union = lista_categorie_no_duplicates.union(lista_categorie_salvate)
+            union = lista_categorie_no_duplicates.unionByName(lista_categorie_salvate, allowMissingColumns=True)
             union = Utilities.drop_duplicates_row(union, "data_creazione",["id"])
             print("Dataframe uniti con le categorie nella curated")
             union.show()
@@ -75,9 +97,9 @@ Dal dataframe vengono rimossi i duplicati.
 Il dataframe è unito con quello contenente i visitatori già salvati nella curated
 Vengono mantenute i visitatori inseriti in una data più recente in caso di duplicati
 
-Si considerano duplicati due visitatori con lo stesso ID
+Duplicati: visitatori con stesso ID, viene mantenuto il più recente
+Accettati: deve esserci almeno ID
 """
-#TODO possibile non considerare quei visitatori con dei dati mancanti
 def visitatori(spark):
     print("inizio a spostare i visitatori da Standardized a Curated")
     fileDirectory = 'standardized/visitatori/elenco/'
@@ -87,8 +109,11 @@ def visitatori(spark):
     if (Utilities.check_csv_files(fileDirectory)):
         lista_categorie = spark.read.option("header", "true").option("inferSchema", "true").option("delimiter", ";").csv(
             fileDirectory)
+        # rimuovo visitatori che non hanno id
+        lista_categorie = lista_categorie.filter(func.col("id").isNotNull())
+        # rimuovo duplicati
         lista_categorie_no_duplicates = Utilities.drop_duplicates_row(lista_categorie, "data_creazione",["id"])
-        print("Visitatori trovati nella standardized (no dupplicati)")
+        print("Visitatori trovati nella standardized (no dupplicati e rimosse righe non accettate)")
         lista_categorie_no_duplicates.show()
 
         os.makedirs(destinationDirectory, exist_ok=True)
@@ -97,7 +122,7 @@ def visitatori(spark):
             destinationDirectory)
             print("Visitatori trovati nella curated")
             lista_categorie_salvate.show()
-            union = lista_categorie_no_duplicates.union(lista_categorie_salvate)
+            union = lista_categorie_no_duplicates.unionByName(lista_categorie_salvate, allowMissingColumns=True)
             union = Utilities.drop_duplicates_row(union, "data_creazione",["id"])
             print("Dataframe uniti")
             union.show()
@@ -113,7 +138,7 @@ def visitatori(spark):
                 lista_categorie_no_duplicates.write.mode("append").option("header", "true").option("delimiter", ";").csv(
                     destinationDirectory)
 
-        Utilities.move_input_file(moveDirectory, fileDirectory, lista_categorie)
+        #Utilities.move_input_file(moveDirectory, fileDirectory, lista_categorie)
     else:
         print("Non c'è nessuna nuovo visitatore nella standardized")
 
@@ -124,9 +149,9 @@ Dal dataframe vengono rimossi i duplicati.
 Il dataframe è unito con quello contenente le visite già salvate nella curated
 Vengono mantenute le visite inseriti in una data più recente in caso di duplicati (non dovrebbe succedere)
 
-Si considerano duplicati due visite con lo stesso ID (non dovrebbe capitare di avere file duplicati)
+Duplicati: visite con stesso ID
+Accettati: deve esserci id, opera_id e visitatore_id
 """
-#TODO escludere visite con dati mancanti
 def visite(spark):
     print("inizio a spostare le visite da Standardized a Curated")
     fileDirectory = 'standardized/visitatori/visite/'
@@ -136,6 +161,9 @@ def visite(spark):
     if (Utilities.check_csv_files(fileDirectory)):
         lista_categorie = spark.read.option("header", "true").option("inferSchema", "true").option("delimiter", ";").csv(
             fileDirectory)
+        # rimuovo visite che non hanno id, opera_id e visitatore_id
+        lista_categorie = lista_categorie.filter(func.col("id").isNotNull() & func.col("visitatore_id").isNotNull() & func.col("opera_id").isNotNull())
+        # rimuovo duplicati
         lista_categorie_no_duplicates = Utilities.drop_duplicates_row(lista_categorie, "data_creazione",["id"])
         print("Visite trovate nella standardized (no dupplicati)")
         lista_categorie_no_duplicates.show()
@@ -146,7 +174,7 @@ def visite(spark):
             destinationDirectory)
             print("Visite trovate nella curated")
             lista_categorie_salvate.show()
-            union = lista_categorie_no_duplicates.union(lista_categorie_salvate)
+            union = lista_categorie_no_duplicates.unionByName(lista_categorie_salvate, allowMissingColumns=True)
             union = Utilities.drop_duplicates_row(union, "data_creazione",["id"])
             print("Dataframe uniti")
             union.show()
@@ -173,7 +201,8 @@ Dal dataframe vengono rimossi i duplicati.
 Il dataframe è unito con quello contenente le immagini già salvate nella curated
 Vengono mantenute le immagini inseriti in una data più recente in caso di duplicati (non dovrebbe succedere)
 
-Si considerano duplicati due immagini con lo stesso path e id_opera
+Dupplicati: considerano duplicati due immagini con lo stesso source_file e id_opera
+Accettati: devono avere almeno id_opera e source_file
 """
 def immagini(spark):
     print("inizio a spostare le immagini da Standardized a Curated")
@@ -184,7 +213,11 @@ def immagini(spark):
     if (Utilities.check_csv_files(fileDirectory)):
         lista_categorie = spark.read.option("header", "true").option("inferSchema", "true").option("delimiter", ";").csv(
             fileDirectory)
-        lista_categorie_no_duplicates = Utilities.drop_duplicates_row(lista_categorie, "data_creazione",["input_file","id_opera"])
+        # rimuovo visite che non hanno id, opera_id e visitatore_id
+        lista_categorie = lista_categorie.filter(
+            func.col("id_opera").isNotNull() & func.col("source_file").isNotNull())
+        # rimuovo duplicati
+        lista_categorie_no_duplicates = Utilities.drop_duplicates_row(lista_categorie, "data_creazione",["source_file","id_opera"])
         print("Immagini trovate nella standardized (no dupplicati)")
         lista_categorie_no_duplicates.show()
 
@@ -194,8 +227,8 @@ def immagini(spark):
             destinationDirectory)
             print("Immagini trovate nella curated")
             lista_categorie_salvate.show()
-            union = lista_categorie_no_duplicates.union(lista_categorie_salvate)
-            union = Utilities.drop_duplicates_row(union, "data_creazione",["input_file","id_opera"])
+            union = lista_categorie_no_duplicates.unionByName(lista_categorie_salvate, allowMissingColumns=True)
+            union = Utilities.drop_duplicates_row(union, "data_creazione",["source_file","id_opera"])
             print("Dataframe uniti")
             union.show()
             union.write.mode("append").option("header", "true").option("delimiter", ";").csv(

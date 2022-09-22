@@ -3,6 +3,8 @@ import os.path, time, os
 from pyspark.sql.functions import col, avg, to_date, from_unixtime, initcap, udf, desc, input_file_name
 import shutil
 import re
+from pyspark.sql.types import StructType, StructField, StringType, IntegerType, FloatType, DateType, TimestampType, ArrayType
+
 
 
 def modificationDate(file):
@@ -208,3 +210,29 @@ def remove_input_file(fileDirectory, df):
     for a in list(set(lista)):
         fname = a.split("/")[-1]
         os.remove(fileDirectory+fname)
+
+def check_categorie_duplicate(id,array):
+    for v in array:
+        print("ID "+str(id))
+        print(v.nome_categoria)
+        print(v.eta_min)
+    return list(array[0]) #ritorna lista
+    #return {"in_type": array[0].id, "in_var": array[0].eta_min}
+    data = [("James", "", "Smith", "36636", "M", 3000),
+            ("Michael", "Rose", "", "40288", "M", 4000),
+            ("Robert", "", "Williams", "42114", "M", 4000),
+            ("Maria", "Anne", "Jones", "39192", "F", 4000),
+            ("Jen", "Mary", "Brown", "", "F", -1)
+            ]
+
+    schema = StructType([ \
+        StructField("firstname", StringType(), True), \
+        StructField("middlename", StringType(), True), \
+        StructField("lastname", StringType(), True), \
+        StructField("id", StringType(), True), \
+        StructField("gender", StringType(), True), \
+        StructField("salary", IntegerType(), True) \
+        ])
+    schema.add("James", "", "Smith", "36636", "M", 3000)
+
+    return schema

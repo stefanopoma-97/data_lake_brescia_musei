@@ -1,3 +1,5 @@
-id;nome_categoria;fascia_eta;source_file;data_creazione;fonte;eta_min;eta_man
-33444;Nome Categoria;3445;C:/stefano/Universita/Anno 5/Tesi e Stage/progetto cms brescia musei/data_lake_brescia_musei/raw/visitatori/categorie/fonte 1/processed/file.csv;2022-09-13T17:20:47.000+02:00;fonte 1;;
+id;nome_categoria;fascia_eta;source_file;data_creazione;fonte;eta_min;eta_max
+33444;Nome Categoria;3445;C:/stefano/Universita/Anno 5/Tesi e Stage/progetto cms brescia musei/data_lake_brescia_musei/raw/visitatori/categorie/fonte 1/processed/file.csv;2022-09-20T17:20:47.000+02:00;fonte 1;20;28
 4555;Nome Categoria 2;22-24;C:/stefano/Universita/Anno 5/Tesi e Stage/progetto cms brescia musei/data_lake_brescia_musei/raw/visitatori/categorie/fonte 1/processed/file.csv;2022-09-13T17:20:47.000+02:00;fonte 1;22;24
+4555;dupp;22-24;C:/stefano/Universita/Anno 5/Tesi e Stage/progetto cms brescia musei/data_lake_brescia_musei/raw/visitatori/categorie/fonte 1/processed/file.csv;2022-09-13T17:20:47.000+02:00;fonte 1;22;24
+;Nome Categoria err;22-24;C:/stefano/Universita/Anno 5/Tesi e Stage/progetto cms brescia musei/data_lake_brescia_musei/raw/visitatori/categorie/fonte 1/processed/file.csv;2022-09-13T17:20:47.000+02:00;fonte 1;22;24
