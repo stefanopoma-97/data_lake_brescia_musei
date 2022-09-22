@@ -120,8 +120,8 @@ def get_opere(spark):
                   (func.col("opere.id") == func.col("descrizioni.id_opera")), \
                   "left"
                   )\
-            .select(func.col("opere.id").alias("id"), func.col("descrizioni.descrizione").alias("descrizione"))
-
+            .select(func.col("opere.id").alias("id"), func.col("descrizioni.descrizione").alias("descrizione"))\
+            .groupBy("id").agg(func.collect_list("descrizione").alias("descrizione"))
         #print("join descrizione")
         #join_descrizione.show()
 

@@ -254,9 +254,9 @@ Dal dataframe vengono rimossi i duplicati.
 Il dataframe è unito con quello contenente gli autori già salvati nella curated
 Vengono mantenuti gli autori inseriti in una data più recente in caso di duplicati
 
-Si considerano duplicati due autori con lo stesso ID
+Duplicati: Si considerano duplicati due autori con lo stesso ID
+Accettati: un autore deve almeno avere un id
 """
-#TODO possibile aggiungere un controllo che i campi fondamentali ci siano, in caso contrario si potrebbe non passarlo alla curated
 def autori(spark):
     print("inizio a spostare gli autori da Standardized a Curated")
     fileDirectory = 'standardized/opere/autori/'
@@ -266,6 +266,10 @@ def autori(spark):
     if (Utilities.check_csv_files(fileDirectory)):
         lista_categorie = spark.read.option("header", "true").option("inferSchema", "true").option("delimiter", ";").csv(
             fileDirectory)
+        # rimuovo autori che non hanno id
+        lista_categorie = lista_categorie.filter(
+            func.col("id").isNotNull())
+        # rimuovo duplicati
         lista_categorie_no_duplicates = Utilities.drop_duplicates_row(lista_categorie, "data_creazione",["id"])
         print("Autori trovate nella standardized (no dupplicati)")
         lista_categorie_no_duplicates.show()
@@ -276,7 +280,7 @@ def autori(spark):
             destinationDirectory)
             print("Autori trovati nella curated")
             lista_categorie_salvate.show()
-            union = lista_categorie_no_duplicates.union(lista_categorie_salvate)
+            union = lista_categorie_no_duplicates.unionByName(lista_categorie_salvate, allowMissingColumns=True)
             union = Utilities.drop_duplicates_row(union, "data_creazione",["id"])
             print("Dataframe uniti")
             union.show()
@@ -303,7 +307,8 @@ Dal dataframe vengono rimossi i duplicati.
 Il dataframe è unito con quello contenente le descrizioni già salvate nella curated
 Vengono mantenute le descrizioni inseriti in una data più recente in caso di duplicati 
 
-Si considerano duplicati due visitatori con lo stesso ID
+Duplicati: Si considerano duplicati due descrzioni con stesso contenuto e id_opera
+Accettati: deve avere contenuto e id opera
 """
 #TODO attualmente un opera ha una descrizione e il sistema di gestione dei duplicati mantiene la più recente
 #TODO si può prevedere di mantenere più descrizioni per una stessa opera
@@ -316,7 +321,11 @@ def descrizioni(spark):
     if (Utilities.check_csv_files(fileDirectory)):
         lista_categorie = spark.read.option("header", "true").option("multiline",True).option("inferSchema", "true").option("delimiter", ";").csv(
             fileDirectory)
-        lista_categorie_no_duplicates = Utilities.drop_duplicates_row(lista_categorie, "data_creazione",["id_opera"])
+        # rimuovo descrizioni che non hanno descrizione e id_opera
+        lista_categorie = lista_categorie.filter(
+            func.col("id_opera").isNotNull() & func.col("descrizione").isNotNull())
+        # rimuovo duplicati
+        lista_categorie_no_duplicates = Utilities.drop_duplicates_row(lista_categorie, "data_creazione",["id_opera","descrizione"])
         print("Descrizioni trovate nella standardized (no dupplicati)")
         lista_categorie_no_duplicates.show()
 
@@ -326,8 +335,8 @@ def descrizioni(spark):
             destinationDirectory)
             print("Descrizioni trovate nella curated")
             lista_categorie_salvate.show()
-            union = lista_categorie_no_duplicates.union(lista_categorie_salvate)
-            union = Utilities.drop_duplicates_row(union, "data_creazione",["id_opera"])
+            union = lista_categorie_no_duplicates.unionByName(lista_categorie_salvate, allowMissingColumns=True)
+            union = Utilities.drop_duplicates_row(union, "data_creazione",["id_opera","descrizione"])
             print("Dataframe uniti")
             union.show()
             union.write.mode("append").option("header", "true").option("delimiter", ";").csv(
@@ -353,9 +362,9 @@ Dal dataframe vengono rimossi i duplicati.
 Il dataframe è unito con quello contenente le opere già salvate nella curated
 Vengono mantenute le opere inserite in una data più recente in caso di duplicati
 
-Si considerano duplicati due opere con lo stesso ID
+Duplicati: Si considerano duplicati due opere con lo stesso ID
+Accettati: opera deve avere id, titolo
 """
-#TODO nella standardized dovrebbero essere condierate solo opere con gli attributi fondamentali non null
 def opere(spark):
     print("inizio a spostare le opere da Standardized a Curated")
     fileDirectory = 'standardized/opere/lista/'
@@ -365,6 +374,10 @@ def opere(spark):
     if (Utilities.check_csv_files(fileDirectory)):
         lista_categorie = spark.read.option("header", "true").option("inferSchema", "true").option("delimiter", ";").csv(
             fileDirectory)
+        # rimuovo opere che non hanno id e titolo
+        lista_categorie = lista_categorie.filter(
+            func.col("id").isNotNull() & func.col("titolo").isNotNull())
+        # rimuovo duplicati
         lista_categorie_no_duplicates = Utilities.drop_duplicates_row(lista_categorie, "data_creazione",["id"])
         print("Opere trovate nella standardized (no dupplicati)")
         lista_categorie_no_duplicates.show()
@@ -375,7 +388,7 @@ def opere(spark):
             destinationDirectory)
             print("Opere trovate nella curated")
             lista_categorie_salvate.show()
-            union = lista_categorie_no_duplicates.union(lista_categorie_salvate)
+            union = lista_categorie_no_duplicates.unionByName(lista_categorie_salvate, allowMissingColumns=True)
             union = Utilities.drop_duplicates_row(union, "data_creazione",["id"])
             print("Dataframe uniti")
             union.show()
