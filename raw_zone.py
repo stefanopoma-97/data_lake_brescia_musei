@@ -45,7 +45,7 @@ def opere_lista(spark):
             StructField("timestamp", IntegerType(), True)])
 
         #legge tutti i file nella directory
-        df = spark.read.schema(schema).option("delimiter", ";").csv(fileDirectory)
+        df = spark.read.schema(schema).option("delimiter", ",").csv(fileDirectory)
 
         #udf per estrarre il secolo
         udfFunction_GetCentury = udf(Utilities.centuryFromYear)
@@ -111,7 +111,7 @@ def opere_lista_new(spark, sc, fileDirectory):
         #legge tutti i file nella directory
         df = spark.read\
             .option("mergeSchema", "true")\
-            .option("delimiter", ";")\
+            .option("delimiter", ",")\
             .option("inferSchema", "false") \
             .option("header", "true") \
             .csv(fileDirectory)
@@ -223,8 +223,14 @@ def opere_lista_new(spark, sc, fileDirectory):
                 .withColumn("autore",
                             when(func.col("autore").isNotNull(),initcap("autore"))
                             ) \
+                .withColumn("provenienza",
+                            when(func.col("provenienza").isNotNull(), initcap("provenienza"))
+                            ) \
+                .withColumn("tipologia",
+                            when(func.col("tipologia").isNotNull(), initcap("tipologia"))
+                            ) \
                 .withColumn("secolo",
-                            when(func.col("anno").isNotNull(),udfFunction_GetCentury(df.anno)))
+                            when(func.col("anno").isNotNull(), udfFunction_GetCentury(df.anno)))
 
         df.printSchema()
         df.show(10, False)
@@ -381,7 +387,7 @@ def opere_autori(spark, sc):
             StructField("anno", IntegerType(), True)])
 
         # legge tutti i file nella directory
-        df = spark.read.schema(schema).option("delimiter", ";").csv(fileDirectory)
+        df = spark.read.schema(schema).option("delimiter", ",").csv(fileDirectory)
         #df.printSchema()
 
         udfModificationDate = udf(Utilities.modificationDate)
@@ -428,7 +434,7 @@ def opere_autori_new(spark, sc, fileDirectory):
         #legge tutti i file nella directory
         df = spark.read\
             .option("mergeSchema", "true")\
-            .option("delimiter", ";")\
+            .option("delimiter", ",")\
             .option("inferSchema", "false") \
             .option("header", "true") \
             .csv(fileDirectory)
@@ -452,7 +458,7 @@ def opere_autori_new(spark, sc, fileDirectory):
             df = df.withColumn('id', lit(None).cast("string"))
 
         # Cambio Nome
-        possibili_id = ["auotore","nomecognome","nomeecognome"]
+        possibili_id = ["autore","nomecognome","nomeecognome","nomeautore"]
         for valore in possibili_id:
             if valore in df.columns:
                 df = df.withColumnRenamed(valore, "nome")
@@ -460,7 +466,7 @@ def opere_autori_new(spark, sc, fileDirectory):
             df = df.withColumn('nome', lit(None).cast("string"))
 
         # Cambio anno_nascita
-        possibili_id = ["anno","data","nasciata","annodinascita","datadinascita"]
+        possibili_id = ["anno","data","nascita","annodinascita","datadinascita"]
         for valore in possibili_id:
             if valore in df.columns:
                 df = df.withColumnRenamed(valore, "anno_nascita")
@@ -711,7 +717,7 @@ def visitatori_categorie_new(spark, sc, fileDirectory):
         #legge tutti i file nella directory
         df = spark.read\
             .option("mergeSchema", "true")\
-            .option("delimiter", ";")\
+            .option("delimiter", ",")\
             .option("inferSchema", "false") \
             .option("header", "true") \
             .csv(fileDirectory)
@@ -901,7 +907,7 @@ def visitatori_elenco_new(spark, sc, fileDirectory):
         #legge tutti i file nella directory
         df = spark.read\
             .option("mergeSchema", "true")\
-            .option("delimiter", ";")\
+            .option("delimiter", ",")\
             .option("inferSchema", "false") \
             .option("header", "true") \
             .csv(fileDirectory)
@@ -1073,7 +1079,7 @@ def visitatori_visite_new(spark, sc, fileDirectory):
         #legge tutti i file nella directory
         df = spark.read\
             .option("mergeSchema", "true")\
-            .option("delimiter", ";")\
+            .option("delimiter", ",")\
             .option("inferSchema", "false") \
             .option("header", "true") \
             .csv(fileDirectory)

@@ -289,7 +289,7 @@ def drop_graph():
     print("Elementi del grafo eliminati")
 
 """
-Analizza tutti i file contenente nella curated zone per creare nodi e relazioni in un db Neo4j
+Analizza tutti i file contenente nella curated zone per creare nodi e relazioni in un fonte 1 Neo4j
 Il grafo viene inizialmente eliminato e poi riscritto
 """
 #TODO integrando i controlli sui dati già processati si può evitare di fare un drop del grafo

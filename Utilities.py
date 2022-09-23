@@ -13,7 +13,10 @@ def modificationDate(file):
     return int(ti_c)
 
 def centuryFromYear(year):
-    return math.ceil(year/100)
+    if year is not None:
+        return math.ceil(year/100)
+    else:
+        return None
 
 
 "10-24"
@@ -187,6 +190,7 @@ def move_input_file(moveDirectory, fileDirectory, df):
     lista = data.select("input_file").rdd.flatMap(lambda x: x).collect()
     for a in list(set(lista)):
         fname = a.split("/")[-1]
+        fname = fname.replace("%20", " ")
         shutil.move(fileDirectory + fname, moveDirectory + fname)
     files = os.listdir(fileDirectory)
     for fname in files:
@@ -198,6 +202,7 @@ def move_input_file_from_df(moveDirectory, fileDirectory, df):
     lista = df.select("input_file").rdd.flatMap(lambda x: x).collect()
     for a in list(set(lista)):
         fname = a.split("/")[-1]
+        fname = fname.replace("%20", " ")
         shutil.move(fileDirectory + fname, moveDirectory + fname)
     files = os.listdir(fileDirectory)
     for fname in files:
