@@ -114,7 +114,7 @@ def durataInSecondi(s):
         return (int(datetime.timedelta(hours=int(h),minutes=int(m),seconds=int(se)).total_seconds()))
 
     # mm:ss
-    pattern = r"^\d{2}:\d{2}"
+    pattern = r"^\d{1,2}:\d{2}"
     if re.fullmatch(pattern, s) != None:
         m, se = s.split(':')
         return (int(datetime.timedelta(minutes=int(m), seconds=int(se)).total_seconds()))

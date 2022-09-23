@@ -750,7 +750,7 @@ def visitatori_categorie_new(spark, sc, fileDirectory):
             df = df.withColumn('nome_categoria', lit(None).cast("string"))
 
         # Cambio fascia_eta
-        possibili_id = ["eta","fascia","fasciadieta"]
+        possibili_id = ["eta","fascia","fasciadieta", "età"]
         for valore in possibili_id:
             if valore in df.columns:
                 df = df.withColumnRenamed(valore, "fascia_eta")
@@ -1162,7 +1162,6 @@ def visitatori_visite_new(spark, sc, fileDirectory):
         udfFonte = udf(Utilities.filePathFonte)
         udfDurataInSecondi = udf(Utilities.durataInSecondi)
 
-        df.show()
 
 
 
@@ -1224,7 +1223,7 @@ def visitatori_visite_new(spark, sc, fileDirectory):
         #to_timestamp(col("input_timestamp"), "MM-dd-yyyy HH mm ss SSS")
 
         df.printSchema()
-        df.show(10, False)
+        df.show(20, False)
 
         # salvataggio del DataFrame (solo se contiene informazioni)
         os.makedirs(destinationDirectory, exist_ok=True)
@@ -1233,7 +1232,7 @@ def visitatori_visite_new(spark, sc, fileDirectory):
                 destinationDirectory)
 
         # i file letti vengono spostati nella cartella processed
-        #Utilities.move_input_file(moveDirectory, fileDirectory, df)
+        Utilities.move_input_file(moveDirectory, fileDirectory, df)
 
 
     else:
