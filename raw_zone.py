@@ -956,7 +956,7 @@ def visitatori_elenco_new(spark, sc, fileDirectory):
             df = df.withColumn('sesso', lit(None).cast("string"))
 
         # Cambio età
-        possibili_id = ["eta","anni"]
+        possibili_id = ["eta","anni","età"]
         for valore in possibili_id:
             if valore in df.columns:
                 df = df.withColumnRenamed(valore, "eta")
@@ -999,7 +999,7 @@ def visitatori_elenco_new(spark, sc, fileDirectory):
                             )
 
         df.printSchema()
-        df.show(10, False)
+        df.show(25, False)
 
         # salvataggio del DataFrame (solo se contiene informazioni)
         os.makedirs(destinationDirectory, exist_ok=True)
