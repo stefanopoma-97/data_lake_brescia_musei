@@ -480,10 +480,13 @@ def main():
     elif (valore == '1'):
         opere(spark)
     elif (valore == '0'):
-        print()
-        #TODO implementare tutti
-
-
+        categoria_visitatori(spark)
+        visitatori(spark)
+        visite(spark)
+        immagini(spark)
+        autori(spark)
+        descrizioni(spark)
+        opere(spark)
 
 if __name__ == "__main__":
     main()

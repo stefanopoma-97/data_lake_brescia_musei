@@ -106,7 +106,7 @@ def get_opere(spark):
         #join opera con autori
         join_autori = opere.alias("opere") \
             .join(autori.alias("autori"), \
-                  (func.col("opere.autore") == func.col("autori.nome")), \
+                  (func.lower(func.col("opere.autore")) == func.lower(func.col("autori.nome"))), \
                   "left"
                   ) \
             .select(func.col("opere.id").alias("id"), func.col("autori.id").alias("autore_id"))
@@ -323,6 +323,14 @@ def write_neo4j(spark):
     df2.printSchema()
     df2.show()
 
+    # necessario perchè non c'è una vincolo 1:1
+    df2.write \
+        .mode("overwrite") \
+        .format("org.neo4j.spark.DataSource") \
+        .option("url", "bolt://localhost:7687") \
+        .option("query", "MATCH (v:Visitatore {id:event.id})-[r:CATEGORIA]->() DELETE r") \
+        .save()
+
     df2.write \
         .mode("overwrite") \
         .format("org.neo4j.spark.DataSource") \
@@ -370,7 +378,16 @@ def write_neo4j(spark):
     opere.show()
 
     # opera->autore
-    #necessario toglere le relazioni null
+
+    #necessario perchè non c'è una vincolo 1:1
+    opere.filter(opere.autore_id.isNotNull()).write \
+        .mode("overwrite") \
+        .format("org.neo4j.spark.DataSource") \
+        .option("url", "bolt://localhost:7687") \
+        .option("query", "MATCH (n:Opera {id:event.id})-[r:CREATA]->() DELETE r")\
+        .save()
+
+    #necessario togliere le relazioni null
     opere.filter(opere.autore_id.isNotNull()).write \
         .mode("overwrite") \
         .format("org.neo4j.spark.DataSource") \
