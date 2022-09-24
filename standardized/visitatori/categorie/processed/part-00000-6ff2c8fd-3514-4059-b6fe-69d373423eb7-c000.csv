@@ -1,0 +1,2 @@
+id;nome_categoria;source_file;data_creazione;fonte;eta_min;eta_max
+4;Nome Nuovo;C:/stefano/Universita/Anno 5/Tesi e Stage/progetto cms brescia musei/data_lake_brescia_musei/raw/visitatori/categorie/fonte 1/processed/file.csv;2022-09-24T09:41:10.000+02:00;fonte 1;55;80
