@@ -465,9 +465,9 @@ def write_neo4j(spark):
 
 def main():
     print("Da Curated a Application Zone")
+    percorso_jar=r"C:\spark-3.3.0-bin-hadoop3\spark-3.3.0-bin-hadoop3\bin\neo4j-connector-apache-spark_2.12-4.1.4_for_spark_3.jar"
 
-    conf = SparkConf().setMaster("local").setAppName("cms_curated").set("spark.jars",
-                                                                            r"C:\spark-3.3.0-bin-hadoop3\spark-3.3.0-bin-hadoop3\bin\neo4j-connector-apache-spark_2.12-4.1.4_for_spark_3.jar")
+    conf = SparkConf().setMaster("local").setAppName("cms_curated").set("spark.jars",percorso_jar)
     sc = SparkContext(conf=conf)
     # Configurazione SparkSession
     spark = SparkSession.builder. \

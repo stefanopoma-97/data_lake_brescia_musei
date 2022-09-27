@@ -4,7 +4,7 @@ from pyspark.sql.functions import col, avg, to_date, from_unixtime, initcap, udf
 import shutil
 import re
 from pyspark.sql.types import StructType, StructField, StringType, IntegerType, FloatType, DateType, TimestampType, ArrayType
-
+import os
 
 
 def modificationDate(file):
@@ -58,15 +58,24 @@ def recreateSpace(origin):
     return s
 
 def filePath(origin):
+    osName = os.name
     s = origin.replace("%20", " ")
-    s = s.replace("file:/", "")
+    if (osName == "nt"):
+        s = s.replace("file:/", "")
+    else:
+        s = s.replace("file:", "")
     s = s.replace("//", "")
     return s
 
 
 def filePathInProcessed(origin):
+    # Get OS name
+    osName = os.name
     s = origin.replace("%20", " ")
-    s = s.replace("file:/", "")
+    if (osName == "nt"):
+        s = s.replace("file:/", "")
+    else:
+        s = s.replace("file:", "")
     s = s.replace("//", "")
     old = "/"
     new = "/processed/"
@@ -74,8 +83,13 @@ def filePathInProcessed(origin):
     return s
 
 def filePathFonte(origin):
+    osName = os.name
     s = origin.replace("%20", " ")
-    s = s.replace("file:/", "")
+    if (osName == "nt"):
+        s = s.replace("file:/", "")
+    else:
+        s = s.replace("file:", "")
+
     s = s.replace("//", "")
     array = s.split("/")
     return array[-2]
@@ -121,8 +135,12 @@ def durataInSecondi(s):
 
 
 def filePathInProcessedNew(origin):
+    osName = os.name
     s = origin.replace("%20", " ")
-    s = s.replace("file:/", "")
+    if (osName == "nt"):
+        s = s.replace("file:/", "")
+    else:
+        s = s.replace("file:", "")
     s = s.replace("//", "")
     array = s.split("/")
     array = array.pop()

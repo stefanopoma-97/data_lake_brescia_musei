@@ -801,7 +801,7 @@ def visitatori_categorie_new(spark, sc, fileDirectory):
                 destinationDirectory)
 
         # i file letti vengono spostati nella cartella processed
-        Utilities.move_input_file(moveDirectory, fileDirectory, df)
+        #Utilities.move_input_file(moveDirectory, fileDirectory, df)
 
 
     else:
