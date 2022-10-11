@@ -28,7 +28,7 @@ Viene anche aggiunta una colonna contenente le categorie associata al visitatore
 #TODO poi separatamente vedere se c'è una categoria nuova e fare il join con tutti i visitatori
 #TODO il passaggio da standardized a curate potrebbe inserire una colonna "processato" = False
 #TODO il passaggio da curated ad application potrebbe impostare il valore a True a tutte le informazioni salvate sul grafo
-def get_visitatori(spark):
+def get_visitatori_e_categorie(spark):
     print("GET visitatori e array categorie")
     directoryCategorie = 'curated/visitatori/categorie/'
     directoryVisitatori = 'curated/visitatori/elenco/'
@@ -65,6 +65,26 @@ def get_visitatori(spark):
     else:
         print("Attenzione, mancano i visitaotori e/o le categorie")
 
+def get_visitatori(spark):
+    print("GET visitatori")
+    directoryVisitatori = 'curated/visitatori/elenco/'
+
+    if (Utilities.check_csv_files(directoryVisitatori)):
+        lista_visitatori = spark.read.option("header", "true").option("inferSchema", "true").option("delimiter",
+                                                                                                   ";").csv(
+            directoryVisitatori)
+        print("Visitatori:")
+        lista_visitatori.show()
+
+
+        return lista_visitatori
+
+
+    else:
+        print("Attenzione, mancano i visitaotori e/o le categorie")
+        return None
+
+
 """
 Restituisce un dataframe contenente tutte le opere
 alle opere è associato l'id dell'autore, la descrizione, l'elenco delle immagini (Array di ID)
@@ -80,15 +100,27 @@ def get_opere(spark):
         opere = spark.read.option("header", "true").option("inferSchema", "true").option("delimiter",
                                                                                                    ";").csv(
             directoryOpere)
-        autori = spark.read.option("header", "true").option("inferSchema", "true").option("delimiter",
-                                                                                                   ";").csv(
-            directoryAutori)
-        descrizioni = spark.read.option("header", "true").option("multiline",True).option("inferSchema", "true").option("delimiter",
-                                                                                          ";").csv(
-            directoryDescrizioni)
-        immagini = spark.read.option("header", "true").option("inferSchema", "true").option("delimiter",
-                                                                                          ";").csv(
-            directoryImmagini)
+
+        if (Utilities.check_csv_files(directoryAutori)):
+            autori = spark.read.option("header", "true").option("inferSchema", "true").option("delimiter",
+                                                                                                       ";").csv(
+                directoryAutori)
+        else:
+            autori = Utilities.empty_autori(spark)
+
+        if (Utilities.check_csv_files(directoryDescrizioni)):
+            descrizioni = spark.read.option("header", "true").option("multiline",True).option("inferSchema", "true").option("delimiter",
+                                                                                              ";").csv(
+                directoryDescrizioni)
+        else:
+            descrizioni = Utilities.empty_descrizioni(spark)
+
+        if (Utilities.check_csv_files(directoryImmagini)):
+            immagini = spark.read.option("header", "true").option("inferSchema", "true").option("delimiter",
+                                                                                              ";").csv(
+                directoryImmagini)
+        else:
+            immagini = Utilities.empty_immagini(spark)
 
         print("opere")
         opere.show()
@@ -162,6 +194,7 @@ def get_opere(spark):
 
     else:
         print("Attenzione, non ci sono opere")
+        return None
 
 """
 Restituisce un datframe contenente le visite, a cui viene anche aggiunta una colonna per l'id del visitatore e l'id dell'opera.
@@ -173,7 +206,7 @@ def get_visite(spark):
     directoryVisitatori = 'curated/visitatori/elenco/'
     directoryVisite = 'curated/visitatori/visite/'
 
-    if (Utilities.check_csv_files(directoryOpere)):
+    if (Utilities.check_csv_files(directoryOpere) and Utilities.check_csv_files(directoryVisitatori) and Utilities.check_csv_files(directoryVisite)):
         opere = spark.read.option("header", "true").option("inferSchema", "true").option("delimiter",
                                                                                          ";").csv(
             directoryOpere)
@@ -215,7 +248,8 @@ def get_visite(spark):
         #TODO le visite escluse potrebbero non essere considerate come fatte
 
     else:
-        print("Attenzione, non ci sono opere")
+        print("Attenzione, non ci sono visite e/o visitatori e/o opere")
+        return None
 
 """
 Restituisce un dataframe contenente le categorie
@@ -237,6 +271,7 @@ def get_categorie(spark):
 
     else:
         print("Attenzione, non ci sono nuove categorie")
+        return None
 
 """
 Restituisce un dataframe contente le immagini
@@ -257,7 +292,8 @@ def get_immagini(spark):
         return categorie
 
     else:
-        print("Attenzione, non ci sono nuove categorie")
+        print("Attenzione, non ci sono nuove immagini")
+        return None
 
 """
 Restituisce un dataframe contenente le immagini
@@ -279,6 +315,7 @@ def get_autori(spark):
 
     else:
         print("Attenzione, non ci sono nuovi autori")
+        return None
 
 """
 Cancella tutti i nodi e le relazioni nel grafo
@@ -301,166 +338,190 @@ def write_neo4j(spark):
 
     #Creo nodi delle categorie
     categorie = get_categorie(spark)
-    categorie.write \
-        .mode("overwrite") \
-        .format("org.neo4j.spark.DataSource") \
-        .option("url", "bolt://localhost:7687") \
-        .option("labels", ":Categoria") \
-        .option("node.keys", "id") \
-        .save()
+    if (categorie != None):
+        categorie.write \
+            .mode("overwrite") \
+            .format("org.neo4j.spark.DataSource") \
+            .option("url", "bolt://localhost:7687") \
+            .option("labels", ":Categoria") \
+            .option("node.keys", "id") \
+            .save()
+    else:
+        print("Attenzione, nella curated zone mancano le categorie. Non è possibile scriverle nel grafo")
 
     #creo nodi visitatori e poi relazione Visitatore->Categoria
     visitatori = get_visitatori(spark)
-    visitatori.write \
-        .mode("overwrite") \
-        .format("org.neo4j.spark.DataSource") \
-        .option("url", "bolt://localhost:7687") \
-        .option("labels", ":Visitatore") \
-        .option("node.keys", "id") \
-        .save()
+    if (visitatori != None):
+        visitatori.write \
+            .mode("overwrite") \
+            .format("org.neo4j.spark.DataSource") \
+            .option("url", "bolt://localhost:7687") \
+            .option("labels", ":Visitatore") \
+            .option("node.keys", "id") \
+            .save()
+    else:
+        print("Attenzione, nella curated zone mancano i visitatori. Non è possibile scriverli nel grafo")
 
-    df2 = visitatori.select(visitatori.id, explode(visitatori.categorie_id).alias("categorie_id"))
-    df2.printSchema()
-    df2.show()
+    if (categorie!= None and visitatori!=None):
+        visitatori = get_visitatori_e_categorie(spark)
+        df2 = visitatori.select(visitatori.id, explode(visitatori.categorie_id).alias("categorie_id"))
+        df2.printSchema()
+        df2.show()
 
-    # necessario perchè non c'è una vincolo 1:1
-    df2.write \
-        .mode("overwrite") \
-        .format("org.neo4j.spark.DataSource") \
-        .option("url", "bolt://localhost:7687") \
-        .option("query", "MATCH (v:Visitatore {id:event.id})-[r:CATEGORIA]->() DELETE r") \
-        .save()
+        # necessario perchè non c'è una vincolo 1:1
+        df2.write \
+            .mode("overwrite") \
+            .format("org.neo4j.spark.DataSource") \
+            .option("url", "bolt://localhost:7687") \
+            .option("query", "MATCH (v:Visitatore {id:event.id})-[r:CATEGORIA]->() DELETE r") \
+            .save()
 
-    df2.write \
-        .mode("overwrite") \
-        .format("org.neo4j.spark.DataSource") \
-        .option("url", "bolt://localhost:7687") \
-        .option("relationship", "CATEGORIA") \
-        .option("relationship.save.strategy", "keys") \
-        .option("relationship.properties", "categorie_id:categoria_id, id:visitatore_id")\
-        .option("relationship.source.labels", ":Visitatore") \
-        .option("relationship.source.save.mode", "overwrite") \
-        .option("relationship.source.node.keys", "id") \
-        .option("relationship.target.labels", ":Categoria") \
-        .option("relationship.target.node.keys", "categorie_id:id") \
-        .option("relationship.target.save.mode", "overwrite") \
-        .save()
+        df2.write \
+            .mode("overwrite") \
+            .format("org.neo4j.spark.DataSource") \
+            .option("url", "bolt://localhost:7687") \
+            .option("relationship", "CATEGORIA") \
+            .option("relationship.save.strategy", "keys") \
+            .option("relationship.properties", "categorie_id:categoria_id, id:visitatore_id")\
+            .option("relationship.source.labels", ":Visitatore") \
+            .option("relationship.source.save.mode", "overwrite") \
+            .option("relationship.source.node.keys", "id") \
+            .option("relationship.target.labels", ":Categoria") \
+            .option("relationship.target.node.keys", "categorie_id:id") \
+            .option("relationship.target.save.mode", "overwrite") \
+            .save()
+    else:
+        print("Attenzione, nella curated zone mancano le categorie e/o i visitatori. Non è possibile scrivere la relazione nel grafo")
 
     #Creo nodo immagine
     immagini = get_immagini(spark)
-    immagini.write \
-        .mode("overwrite") \
-        .format("org.neo4j.spark.DataSource") \
-        .option("url", "bolt://localhost:7687") \
-        .option("labels", ":Immagine") \
-        .option("node.keys", "source_file") \
-        .save()
+    if (immagini!=None):
+        immagini.write \
+            .mode("overwrite") \
+            .format("org.neo4j.spark.DataSource") \
+            .option("url", "bolt://localhost:7687") \
+            .option("labels", ":Immagine") \
+            .option("node.keys", "source_file") \
+            .save()
+    else:
+        print("Attenzione, nella curated zone mancano le immagini. Non è possibile scriverle nel grafo")
 
     #creo nodo autore
     autori = get_autori(spark)
-    autori.write \
-        .mode("overwrite") \
-        .format("org.neo4j.spark.DataSource") \
-        .option("url", "bolt://localhost:7687") \
-        .option("labels", ":Autore") \
-        .option("node.keys", "id") \
-        .save()
+    if (autori!=None):
+        autori.write \
+            .mode("overwrite") \
+            .format("org.neo4j.spark.DataSource") \
+            .option("url", "bolt://localhost:7687") \
+            .option("labels", ":Autore") \
+            .option("node.keys", "id") \
+            .save()
+    else:
+        print("Attenzione, nella curated zone mancano gli autori. Non è possibile scriverli nel grafo")
 
     #creo opere
+
     opere = get_opere(spark)
-    opere.drop("immagini","autore_id").write \
-        .mode("overwrite") \
-        .format("org.neo4j.spark.DataSource") \
-        .option("url", "bolt://localhost:7687") \
-        .option("labels", ":Opera") \
-        .option("node.keys", "id") \
-        .save()
-    opere.show()
+    if (opere!=None):
+        opere.drop("immagini","autore_id").write \
+            .mode("overwrite") \
+            .format("org.neo4j.spark.DataSource") \
+            .option("url", "bolt://localhost:7687") \
+            .option("labels", ":Opera") \
+            .option("node.keys", "id") \
+            .save()
+        opere.show()
 
-    # opera->autore
+        # opera->autore
 
-    #necessario perchè non c'è una vincolo 1:1
-    opere.filter(opere.autore_id.isNotNull()).write \
-        .mode("overwrite") \
-        .format("org.neo4j.spark.DataSource") \
-        .option("url", "bolt://localhost:7687") \
-        .option("query", "MATCH (n:Opera {id:event.id})-[r:CREATA]->() DELETE r")\
-        .save()
+        #necessario perchè non c'è una vincolo 1:1
+        opere.filter(opere.autore_id.isNotNull()).write \
+            .mode("overwrite") \
+            .format("org.neo4j.spark.DataSource") \
+            .option("url", "bolt://localhost:7687") \
+            .option("query", "MATCH (n:Opera {id:event.id})-[r:CREATA]->() DELETE r")\
+            .save()
 
-    #necessario togliere le relazioni null
-    opere.filter(opere.autore_id.isNotNull()).write \
-        .mode("overwrite") \
-        .format("org.neo4j.spark.DataSource") \
-        .option("url", "bolt://localhost:7687") \
-        .option("relationship", "CREATA") \
-        .option("relationship.save.strategy", "keys") \
-        .option("relationship.source.labels", ":Opera") \
-        .option("relationship.source.save.mode", "overwrite") \
-        .option("relationship.source.node.keys", "id") \
-        .option("relationship.target.labels", ":Autore") \
-        .option("relationship.target.node.keys", "autore_id:id") \
-        .option("relationship.target.save.mode", "overwrite") \
-        .save()
+        #necessario togliere le relazioni null
+        opere.filter(opere.autore_id.isNotNull()).write \
+            .mode("overwrite") \
+            .format("org.neo4j.spark.DataSource") \
+            .option("url", "bolt://localhost:7687") \
+            .option("relationship", "CREATA") \
+            .option("relationship.save.strategy", "keys") \
+            .option("relationship.source.labels", ":Opera") \
+            .option("relationship.source.save.mode", "overwrite") \
+            .option("relationship.source.node.keys", "id") \
+            .option("relationship.target.labels", ":Autore") \
+            .option("relationship.target.node.keys", "autore_id:id") \
+            .option("relationship.target.save.mode", "overwrite") \
+            .save()
 
-    df2 = opere.select(opere.id, explode(opere.immagini).alias("immagini"))
-    df2.printSchema()
-    df2.show()
+        df2 = opere.select(opere.id, explode(opere.immagini).alias("immagini"))
+        df2.printSchema()
+        df2.show()
 
-    #opera->immagini
-    df2.write \
-        .mode("overwrite") \
-        .format("org.neo4j.spark.DataSource") \
-        .option("url", "bolt://localhost:7687") \
-        .option("relationship", "MULTIMEDIA") \
-        .option("relationship.save.strategy", "keys") \
-        .option("relationship.source.labels", ":Opera") \
-        .option("relationship.source.save.mode", "overwrite") \
-        .option("relationship.source.node.keys", "id") \
-        .option("relationship.target.labels", ":Immagine") \
-        .option("relationship.target.node.keys", "immagini:source_file") \
-        .option("relationship.target.save.mode", "overwrite") \
-        .save()
+        #opera->immagini
+        df2.write \
+            .mode("overwrite") \
+            .format("org.neo4j.spark.DataSource") \
+            .option("url", "bolt://localhost:7687") \
+            .option("relationship", "MULTIMEDIA") \
+            .option("relationship.save.strategy", "keys") \
+            .option("relationship.source.labels", ":Opera") \
+            .option("relationship.source.save.mode", "overwrite") \
+            .option("relationship.source.node.keys", "id") \
+            .option("relationship.target.labels", ":Immagine") \
+            .option("relationship.target.node.keys", "immagini:source_file") \
+            .option("relationship.target.save.mode", "overwrite") \
+            .save()
+    else:
+        print("Attenzione, nella curated zone mancano le opere. Non è possibile scriverle nel grafo")
 
 
     #creo visite
     visite = get_visite(spark)
-    print("Visite prese")
-    #visite.show()
-    visite.drop("opera", "visitatore").write \
-        .mode("overwrite") \
-        .format("org.neo4j.spark.DataSource") \
-        .option("url", "bolt://localhost:7687") \
-        .option("labels", ":Visita") \
-        .option("node.keys", "id") \
-        .save()
-    visita_r = visite.select("id","visitatore_id","opera_id")
-    #visita_r.show()
-    visita_r.write \
-        .mode("overwrite") \
-        .format("org.neo4j.spark.DataSource") \
-        .option("url", "bolt://localhost:7687") \
-        .option("relationship", "VISITA_OPERA") \
-        .option("relationship.save.strategy", "keys") \
-        .option("relationship.source.labels", ":Visita") \
-        .option("relationship.source.save.mode", "overwrite") \
-        .option("relationship.source.node.keys", "id") \
-        .option("relationship.target.labels", ":Opera") \
-        .option("relationship.target.node.keys", "opera_id:id") \
-        .option("relationship.target.save.mode", "overwrite") \
-        .save()
-    visita_r.write \
-        .mode("overwrite") \
-        .format("org.neo4j.spark.DataSource") \
-        .option("url", "bolt://localhost:7687") \
-        .option("relationship", "VISITA_VISITATORE") \
-        .option("relationship.save.strategy", "keys") \
-        .option("relationship.source.labels", ":Visita") \
-        .option("relationship.source.save.mode", "overwrite") \
-        .option("relationship.source.node.keys", "id") \
-        .option("relationship.target.labels", ":Visitatore") \
-        .option("relationship.target.node.keys", "visitatore_id:id") \
-        .option("relationship.target.save.mode", "overwrite") \
-        .save()
+    if (visite!=None):
+        print("Visite prese")
+        #visite.show()
+        visite.drop("opera", "visitatore").write \
+            .mode("overwrite") \
+            .format("org.neo4j.spark.DataSource") \
+            .option("url", "bolt://localhost:7687") \
+            .option("labels", ":Visita") \
+            .option("node.keys", "id") \
+            .save()
+        visita_r = visite.select("id","visitatore_id","opera_id")
+        #visita_r.show()
+        visita_r.write \
+            .mode("overwrite") \
+            .format("org.neo4j.spark.DataSource") \
+            .option("url", "bolt://localhost:7687") \
+            .option("relationship", "VISITA_OPERA") \
+            .option("relationship.save.strategy", "keys") \
+            .option("relationship.source.labels", ":Visita") \
+            .option("relationship.source.save.mode", "overwrite") \
+            .option("relationship.source.node.keys", "id") \
+            .option("relationship.target.labels", ":Opera") \
+            .option("relationship.target.node.keys", "opera_id:id") \
+            .option("relationship.target.save.mode", "overwrite") \
+            .save()
+        visita_r.write \
+            .mode("overwrite") \
+            .format("org.neo4j.spark.DataSource") \
+            .option("url", "bolt://localhost:7687") \
+            .option("relationship", "VISITA_VISITATORE") \
+            .option("relationship.save.strategy", "keys") \
+            .option("relationship.source.labels", ":Visita") \
+            .option("relationship.source.save.mode", "overwrite") \
+            .option("relationship.source.node.keys", "id") \
+            .option("relationship.target.labels", ":Visitatore") \
+            .option("relationship.target.node.keys", "visitatore_id:id") \
+            .option("relationship.target.save.mode", "overwrite") \
+            .save()
+    else:
+        print("Mancano dei dati: visite, visitatori, opere")
+        print("per inserire una visita devono essere presenti tutte e 3 le informazioni nella curated zone")
 
 
 def main():
@@ -492,7 +553,7 @@ def main():
                    "5) Drop DB\n")
 
     if (valore == '1'):
-        get_visitatori(spark)
+        get_visitatori_e_categorie(spark)
     elif (valore == '2'):
         get_opere(spark)
     elif (valore == '3'):

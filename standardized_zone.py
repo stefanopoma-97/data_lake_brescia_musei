@@ -266,6 +266,7 @@ def autori(spark):
     if (Utilities.check_csv_files(fileDirectory)):
         lista_categorie = spark.read.option("header", "true").option("inferSchema", "true").option("delimiter", ";").csv(
             fileDirectory)
+
         # rimuovo autori che non hanno id
         lista_categorie = lista_categorie.filter(
             func.col("id").isNotNull())
@@ -273,6 +274,7 @@ def autori(spark):
         lista_categorie_no_duplicates = Utilities.drop_duplicates_row(lista_categorie, "data_creazione",["id"])
         print("Autori trovate nella standardized (no dupplicati)")
         lista_categorie_no_duplicates.show()
+        lista_categorie_no_duplicates.printSchema()
 
         os.makedirs(destinationDirectory, exist_ok=True)
         if (Utilities.check_csv_files(destinationDirectory)):
@@ -328,6 +330,7 @@ def descrizioni(spark):
         lista_categorie_no_duplicates = Utilities.drop_duplicates_row(lista_categorie, "data_creazione",["id_opera","descrizione"])
         print("Descrizioni trovate nella standardized (no dupplicati)")
         lista_categorie_no_duplicates.show()
+        lista_categorie_no_duplicates.printSchema()
 
         os.makedirs(destinationDirectory, exist_ok=True)
         if (Utilities.check_csv_files(destinationDirectory)):

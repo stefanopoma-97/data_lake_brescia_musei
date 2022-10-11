@@ -117,8 +117,8 @@ def durataInSecondi(s):
     pattern_secondi=r"^\d+"
     if re.fullmatch(pattern_secondi, s)!=None:
         #print(s + "match con:"+pattern_secondi)
-        #t = '10:15:30'
-        #h, m, s = t.split(':')
+        #processed = '10:15:30'
+        #h, m, s = processed.split(':')
         return (int(datetime.timedelta(seconds=int(s)).total_seconds()))
 
     #H:mm:ss
@@ -259,3 +259,41 @@ def check_categorie_duplicate(id,array):
     schema.add("James", "", "Smith", "36636", "M", 3000)
 
     return schema
+
+def empty_autori(spark):
+    emptyRDD = spark.sparkContext.emptyRDD()
+    schema = StructType([
+        StructField('id', IntegerType(), True),
+        StructField('nome', StringType(), True),
+        StructField('anno_nascita', IntegerType(), True),
+        StructField('source_file', StringType(), True),
+        StructField('data_creazione', TimestampType(), True),
+        StructField('fonte', StringType(), True)
+    ])
+    df = spark.createDataFrame(emptyRDD, schema)
+    return df
+
+def empty_descrizioni(spark):
+    emptyRDD = spark.sparkContext.emptyRDD()
+    schema = StructType([
+        StructField('descrizione', StringType(), True),
+        StructField('id_opera', StringType(), True),
+        StructField('titolo_opera', StringType(), True),
+        StructField('source_file', StringType(), True),
+        StructField('fonte', StringType(), True),
+        StructField('data_creazione', TimestampType(), True)
+    ])
+    df = spark.createDataFrame(emptyRDD, schema)
+    return df
+
+def empty_immagini(spark):
+    emptyRDD = spark.sparkContext.emptyRDD()
+    schema = StructType([
+        StructField('id_opera', IntegerType(), True),
+        StructField('titolo_opera', StringType(), True),
+        StructField('source_file', StringType(), True),
+        StructField('fonte', StringType(), True),
+        StructField('data_creazione', TimestampType(), True)
+    ])
+    df = spark.createDataFrame(emptyRDD, schema)
+    return df
