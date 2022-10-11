@@ -1,5 +1,0 @@
-id;nome_categoria;source_file;data_creazione;fonte;eta_min;eta_max
-1;Giovani;C:/stefano/Universita/Anno 5/Tesi e Stage/progetto cms brescia musei/data_lake_brescia_musei/raw/visitatori/categorie/fonte 1/processed/Dati di input Raw Zone - categorie.csv;2022-09-23T11:27:58.000+02:00;fonte 1;10;16
-2;Ragazzi;C:/stefano/Universita/Anno 5/Tesi e Stage/progetto cms brescia musei/data_lake_brescia_musei/raw/visitatori/categorie/fonte 1/processed/Dati di input Raw Zone - categorie.csv;2022-09-23T11:27:58.000+02:00;fonte 1;17;22
-3;Nome 3;C:/stefano/Universita/Anno 5/Tesi e Stage/progetto cms brescia musei/data_lake_brescia_musei/raw/visitatori/categorie/fonte 1/processed/Dati di input Raw Zone - categorie.csv;2022-09-23T11:27:58.000+02:00;fonte 1;24;36
-4;Nome 4;C:/stefano/Universita/Anno 5/Tesi e Stage/progetto cms brescia musei/data_lake_brescia_musei/raw/visitatori/categorie/fonte 1/processed/Dati di input Raw Zone - categorie.csv;2022-09-23T11:27:58.000+02:00;fonte 1;55;80

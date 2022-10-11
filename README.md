@@ -62,5 +62,7 @@ NEO4J
 9) Confermare e attendere che il database venga creato
 10) Premere su "Start"
 11) Successivamente premere su "Open" per aprire da vista da Browser
-1
+
+
+Nella cartalla /guida trovi un file .pdf contenente alcuni consigli su come testare correttamente il codice
    

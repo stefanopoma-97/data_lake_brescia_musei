@@ -1,5 +1,0 @@
-id;tag_id;titolo;tipologia;anno;provenienza;autore;source_file;data_creazione;fonte;secolo
-1;100;Titolo 1;Quadro;1950;Roma;Nome Autore 1;C:/stefano/Universita/Anno 5/Tesi e Stage/progetto cms brescia musei/data_lake_brescia_musei/raw/opere/lista/fonte 1/processed/Dati di input Raw Zone - opera1.csv;2022-09-23T11:17:18.000+02:00;fonte 1;20
-2;99;Titolo 2;Quadro;1920;Roma;Nome Autore 2;C:/stefano/Universita/Anno 5/Tesi e Stage/progetto cms brescia musei/data_lake_brescia_musei/raw/opere/lista/fonte 1/processed/Dati di input Raw Zone - opera1.csv;2022-09-23T11:17:18.000+02:00;fonte 1;20
-3;98;Titolo 3;Quadro;1999;Brescia;Nome Autore 3;C:/stefano/Universita/Anno 5/Tesi e Stage/progetto cms brescia musei/data_lake_brescia_musei/raw/opere/lista/fonte 1/processed/Dati di input Raw Zone - opera1.csv;2022-09-23T11:17:18.000+02:00;fonte 1;20
-4;97;Titolo 4;Quadro;1950;Firenze;Nome Autore 4;C:/stefano/Universita/Anno 5/Tesi e Stage/progetto cms brescia musei/data_lake_brescia_musei/raw/opere/lista/fonte 1/processed/Dati di input Raw Zone - opera1.csv;2019-03-03T19:23:00.000+01:00;fonte 1;20
