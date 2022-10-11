@@ -801,7 +801,7 @@ def visitatori_categorie_new(spark, sc, fileDirectory):
                 destinationDirectory)
 
         # i file letti vengono spostati nella cartella processed
-        #Utilities.move_input_file(moveDirectory, fileDirectory, df)
+        Utilities.move_input_file(moveDirectory, fileDirectory, df)
 
 
     else:
@@ -1302,6 +1302,7 @@ def main():
         immagini_sottocartelle(spark, sc)
         categorie_sottocartelle(spark, sc)
         visitatori_sottocartelle(spark, sc)
+        visite_sottocartelle(spark, sc)
 
 if __name__ == "__main__":
     main()
