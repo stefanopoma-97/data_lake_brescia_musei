@@ -16,6 +16,7 @@ import shutil
 import sys
 
 
+
 """
 Vengono lette tutte le opere (da file.csv) nella cartella raw/opere/lista/
 Struttura: 1;34455;Titolo 1;Tipologia 1;1900;Provenienza;autore1 cognome;1663053975
@@ -75,13 +76,13 @@ la funzione serve ad identificare le sottocartelle (fonti) di raw/opere/lista ed
 opere_lista_new() su ognuna delle sottocartelle trovate
 """
 def opere_sottocartelle(spark, sc):
-    print("Controllo le sottocartelle di raw/opere/lista")
+    #print("Controllo le sottocartelle di raw/opere/lista")
     fileDirectory = 'raw/opere/lista/'
 
     cartelle = Utilities.check_sub_folder(fileDirectory)
 
     for c in cartelle:
-        print("Sottocartelle: "+c)
+        #print("Sottocartelle: "+c)
         opere_lista_new(spark, sc, c)
 
 
@@ -100,7 +101,7 @@ Viene inserito l'header e il nuovo dataframe viene salvato nella standardized zo
 I file processati vengono inseriti nella sotto-cartella processed, in modo che non vengano analizzati due volte
 """
 def opere_lista_new(spark, sc, fileDirectory):
-    print("inizio a spostare le opere da Raw a Standardized: "+fileDirectory)
+    #print("inizio a spostare le opere da Raw a Standardized: "+fileDirectory)
     #fileDirectory = 'raw/opere/lista/'
     moveDirectory = fileDirectory + "processed/"
     destinationDirectory = 'standardized/opere/lista/'
@@ -232,8 +233,8 @@ def opere_lista_new(spark, sc, fileDirectory):
                 .withColumn("secolo",
                             when(func.col("anno").isNotNull(), udfFunction_GetCentury(df.anno)))
 
-        df.printSchema()
-        df.show(10, False)
+        #df.printSchema()
+        #df.show(10, False)
 
         # salvataggio del DataFrame (solo se contiene informazioni)
         os.makedirs(destinationDirectory, exist_ok=True)

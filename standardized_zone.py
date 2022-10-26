@@ -369,7 +369,7 @@ Duplicati: Si considerano duplicati due opere con lo stesso ID
 Accettati: opera deve avere id, titolo
 """
 def opere(spark):
-    print("inizio a spostare le opere da Standardized a Curated")
+    #print("inizio a spostare le opere da Standardized a Curated")
     fileDirectory = 'standardized/opere/lista/'
     moveDirectory = 'standardized/opere/lista/processed/'
     destinationDirectory = 'curated/opere/lista/'
@@ -382,30 +382,32 @@ def opere(spark):
             func.col("id").isNotNull() & func.col("titolo").isNotNull())
         # rimuovo duplicati
         lista_categorie_no_duplicates = Utilities.drop_duplicates_row(lista_categorie, "data_creazione",["id"])
-        print("Opere trovate nella standardized (no dupplicati)")
-        lista_categorie_no_duplicates.show()
+        #print("Opere trovate nella standardized (no dupplicati)")
+        #lista_categorie_no_duplicates.show()
 
         os.makedirs(destinationDirectory, exist_ok=True)
         if (Utilities.check_csv_files(destinationDirectory)):
             lista_categorie_salvate=spark.read.option("header", "true").option("inferSchema", "true").option("delimiter", ";").csv(
             destinationDirectory)
-            print("Opere trovate nella curated")
-            lista_categorie_salvate.show()
+            #print("Opere trovate nella curated")
+            #lista_categorie_salvate.show()
             union = lista_categorie_no_duplicates.unionByName(lista_categorie_salvate, allowMissingColumns=True)
             union = Utilities.drop_duplicates_row(union, "data_creazione",["id"])
-            print("Dataframe uniti")
-            union.show()
+            #print("Dataframe uniti")
+            #union.show()
             union.write.mode("append").option("header", "true").option("delimiter", ";").csv(
                 destinationDirectory)
             Utilities.remove_input_file(destinationDirectory, lista_categorie_salvate)
 
 
         else:
-            print("non ci sono opere già salvati")
+            #print("non ci sono opere già salvati")
             os.makedirs(destinationDirectory, exist_ok=True)
+
             if (lista_categorie_no_duplicates.count() > 0):
                 lista_categorie_no_duplicates.write.mode("append").option("header", "true").option("delimiter", ";").csv(
                     destinationDirectory)
+
 
         Utilities.move_input_file(moveDirectory, fileDirectory, lista_categorie)
     else:

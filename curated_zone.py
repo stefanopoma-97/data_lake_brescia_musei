@@ -201,7 +201,7 @@ Restituisce un datframe contenente le visite, a cui viene anche aggiunta una col
 Se gli id non esistono viene inserito null
 """
 def get_visite(spark):
-    print("GET visite")
+    #print("GET visite")
     directoryOpere = 'curated/opere/lista/'
     directoryVisitatori = 'curated/visitatori/elenco/'
     directoryVisite = 'curated/visitatori/visite/'
@@ -217,13 +217,14 @@ def get_visite(spark):
                                                                                            "true").option("delimiter",
                                                                                                           ";").csv(
             directoryVisite)
-
+        """
         print("Opere:")
         opere.show()
         print("Visitatori:")
         visitatori.show()
         print("Visite:")
         visite.show()
+        """
 
         #TODO si potrebbe partire solo dalle visite nuove
         join = visite.alias("visite") \
@@ -241,7 +242,7 @@ def get_visite(spark):
 
         join = join.where(join.visitatore.isNotNull() & join.opera.isNotNull())
         print("Dataframe")
-        join.show()
+        #join.show()
         return join
 
 
@@ -250,6 +251,216 @@ def get_visite(spark):
     else:
         print("Attenzione, non ci sono visite e/o visitatori e/o opere")
         return None
+
+def get_visite_and_write(spark):
+    #print("GET visite")
+    #graph = Graph("bolt://localhost:7687", auth=("neo4j", "neo4j_cms_brescia"))
+    #graph.delete_all()
+    directoryOpere = 'curated/opere/lista/'
+    directoryVisitatori = 'curated/visitatori/elenco/'
+    directoryVisite = 'curated/visitatori/visite/'
+
+    if (Utilities.check_csv_files(directoryOpere) and Utilities.check_csv_files(directoryVisitatori) and Utilities.check_csv_files(directoryVisite)):
+        print("leggo opere: inizio")
+        opere = spark.read.option("header", "true").option("inferSchema", "true").option("delimiter",
+                                                                                         ";").csv(
+            directoryOpere)
+        print("leggo opere: fine")
+        print("leggo visitatori: inizio")
+        visitatori = spark.read.option("header", "true").option("inferSchema", "true").option("delimiter",
+                                                                                          ";").csv(
+            directoryVisitatori)
+        print("leggo visitatori: fine")
+        print("leggo visite: inizio")
+        visite = spark.read.option("header", "true").option("multiline", True).option("inferSchema",
+                                                                          "true").option("delimiter",
+                                                                                                          ";").csv(
+            directoryVisite)
+        print("leggo visite: fine")
+
+
+
+        #TODO si potrebbe partire solo dalle visite nuove
+        print("join visite-opere: inizio")
+        join = visite.alias("visite") \
+            .join(opere.alias("opere"), \
+                  (func.col("visite.opera_id") == func.col("opere.id")), \
+                  "left"
+                  ) \
+            .select(func.col("visite.*"), func.col("opere.id").alias("opera"))
+        print("join visite-opere: fine")
+        print("join visite-opere-visitatori: inizio")
+        join = join.alias("visite") \
+            .join(visitatori.alias("visitatori"),
+                  (func.col("visite.visitatore_id") == func.col("visitatori.id")), \
+                  "left"
+                  ) \
+            .select(func.col("visite.*"), func.col("visitatori.id").alias("visitatore"))
+
+        visite = join.where(join.visitatore.isNotNull() & join.opera.isNotNull())
+        print("join visite-opere-visitatori: fine")
+
+        # scrivo opere
+        print("scrivo opere: inizio")
+        opere.drop("immagini", "autore_id").write \
+            .mode("overwrite") \
+            .format("org.neo4j.spark.DataSource") \
+            .option("url", "bolt://localhost:7687") \
+            .option("labels", ":Opera") \
+            .option("node.keys", "id") \
+            .save()
+        print("scrivo opere: fine")
+        #opere.show()
+
+        print("scrivo visitatori: inizio")
+        visitatori.write \
+            .mode("overwrite") \
+            .format("org.neo4j.spark.DataSource") \
+            .option("url", "bolt://localhost:7687") \
+            .option("labels", ":Visitatore") \
+            .option("node.keys", "id") \
+            .save()
+        print("scrivo visitatori: fine")
+
+        print("scrivo visite: inizio")
+        #scrivo visite e collegamenti con opera e visitatore
+        visite.drop("opera", "visitatore").write \
+            .mode("overwrite") \
+            .format("org.neo4j.spark.DataSource") \
+            .option("url", "bolt://localhost:7687") \
+            .option("labels", ":Visita") \
+            .option("node.keys", "id") \
+            .save()
+        print("scrivo visite: fine")
+
+        print("scrivo VISITA_OPERA: inizio")
+        visita_r = visite.select("id", "visitatore_id", "opera_id")
+        # visita_r.show()
+        visita_r.write \
+            .mode("overwrite") \
+            .format("org.neo4j.spark.DataSource") \
+            .option("url", "bolt://localhost:7687") \
+            .option("relationship", "VISITA_OPERA") \
+            .option("relationship.save.strategy", "keys") \
+            .option("relationship.source.labels", ":Visita") \
+            .option("relationship.source.save.mode", "overwrite") \
+            .option("relationship.source.node.keys", "id") \
+            .option("relationship.target.labels", ":Opera") \
+            .option("relationship.target.node.keys", "opera_id:id") \
+            .option("relationship.target.save.mode", "overwrite") \
+            .save()
+        print("scrivo VISITA_OPERA: fine")
+        print("scrivo VISITA_VISITATORE: inizio")
+        visita_r.write \
+            .mode("overwrite") \
+            .format("org.neo4j.spark.DataSource") \
+            .option("url", "bolt://localhost:7687") \
+            .option("relationship", "VISITA_VISITATORE") \
+            .option("relationship.save.strategy", "keys") \
+            .option("relationship.source.labels", ":Visita") \
+            .option("relationship.source.save.mode", "overwrite") \
+            .option("relationship.source.node.keys", "id") \
+            .option("relationship.target.labels", ":Visitatore") \
+            .option("relationship.target.node.keys", "visitatore_id:id") \
+            .option("relationship.target.save.mode", "overwrite") \
+            .save()
+        print("scrivo VISITA_VISITATORE: fine")
+
+
+
+
+
+    else:
+        print("Attenzione, non ci sono visite e/o visitatori e/o opere")
+        return None
+
+
+def get_visite_and_write_no_rel(spark):
+    #print("GET visite")
+    graph = Graph("bolt://localhost:7687", auth=("neo4j", "neo4j_cms_brescia"))
+    graph.delete_all()
+    directoryOpere = 'curated/opere/lista/'
+    directoryVisitatori = 'curated/visitatori/elenco/'
+    directoryVisite = 'curated/visitatori/visite/'
+
+    if (Utilities.check_csv_files(directoryOpere) and Utilities.check_csv_files(directoryVisitatori) and Utilities.check_csv_files(directoryVisite)):
+        print("leggo opere: inizio")
+        opere = spark.read.option("header", "true").option("inferSchema", "true").option("delimiter",
+                                                                                         ";").csv(
+            directoryOpere)
+        print("leggo opere: fine")
+        print("leggo visitatori: inizio")
+        visitatori = spark.read.option("header", "true").option("inferSchema", "true").option("delimiter",
+                                                                                          ";").csv(
+            directoryVisitatori)
+        print("leggo visitatori: fine")
+        print("leggo visite: inizio")
+        visite = spark.read.option("header", "true").option("multiline", True).option("inferSchema",
+                                                                          "true").option("delimiter",
+                                                                                                          ";").csv(
+            directoryVisite)
+        print("leggo visite: fine")
+
+
+
+        #TODO si potrebbe partire solo dalle visite nuove
+        print("join visite-opere: inizio")
+        join = visite.alias("visite") \
+            .join(opere.alias("opere"), \
+                  (func.col("visite.opera_id") == func.col("opere.id")), \
+                  "left"
+                  ) \
+            .select(func.col("visite.*"), func.col("opere.id").alias("opera"))
+        print("join visite-opere: fine")
+        print("join visite-opere-visitatori: inizio")
+        join = join.alias("visite") \
+            .join(visitatori.alias("visitatori"),
+                  (func.col("visite.visitatore_id") == func.col("visitatori.id")), \
+                  "left"
+                  ) \
+            .select(func.col("visite.*"), func.col("visitatori.id").alias("visitatore"))
+
+        visite = join.where(join.visitatore.isNotNull() & join.opera.isNotNull())
+        print("join visite-opere-visitatori: fine")
+
+        # scrivo opere
+        print("scrivo opere: inizio")
+        opere.drop("immagini", "autore_id").write \
+            .mode("overwrite") \
+            .format("org.neo4j.spark.DataSource") \
+            .option("url", "bolt://localhost:7687") \
+            .option("labels", ":Opera") \
+            .option("node.keys", "id") \
+            .save()
+        print("scrivo opere: fine")
+        #opere.show()
+
+        print("scrivo visitatori: inizio")
+        visitatori.write \
+            .mode("overwrite") \
+            .format("org.neo4j.spark.DataSource") \
+            .option("url", "bolt://localhost:7687") \
+            .option("labels", ":Visitatore") \
+            .option("node.keys", "id") \
+            .save()
+        print("scrivo visitatori: fine")
+
+        print("scrivo visite: inizio")
+        #scrivo visite e collegamenti con opera e visitatore
+        visite.drop("opera", "visitatore").write \
+            .mode("overwrite") \
+            .format("org.neo4j.spark.DataSource") \
+            .option("url", "bolt://localhost:7687") \
+            .option("labels", ":Visita") \
+            .option("node.keys", "id") \
+            .save()
+        print("scrivo visite: fine")
+
+
+    else:
+        print("Attenzione, non ci sono visite e/o visitatori e/o opere")
+        return None
+
 
 """
 Restituisce un dataframe contenente le categorie
@@ -550,7 +761,8 @@ def main():
                    "2) Opera, autore, descirzione e immagini\n"
                    "3) Visite, visitatore e opera\n"
                    "4) Tutti\n"
-                   "5) Drop DB\n")
+                   "5) Drop DB\n"
+                   "6) Visite, visitatore e opera e SALVA\n")
 
     if (valore == '1'):
         get_visitatori_e_categorie(spark)
@@ -563,6 +775,8 @@ def main():
         write_neo4j(spark)
     elif (valore == '5'):
         drop_graph()
+    elif (valore == '6'):
+        get_visite_and_write(spark)
 
 
 

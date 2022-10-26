@@ -168,7 +168,7 @@ def check_csv_files(directory):
 Funzione per restituire le cartelle con file presenti in una directory
 """
 def check_sub_folder(directory):
-    print("controllo quante sottocartelle piene ci sono")
+    #print("controllo quante sottocartelle piene ci sono")
     array = []
     dir = os.listdir(directory)
     for d in dir:
